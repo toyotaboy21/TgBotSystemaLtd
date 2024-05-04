@@ -481,3 +481,53 @@ async def get_stream_info(channel: str) -> Union[Dict[str, Any], bool]:
                 return await response.json()
             else:
                 return False
+            
+async def change_password(id: int, token: str) -> Union[Dict[str, Any], bool]:
+
+    """
+    Отправка смс кода для смены пароля
+
+    ```json
+    {
+        "response": {
+            "status": true,
+            "phone": "79*****9472"
+        }
+    }
+    ```
+    
+    API Docs: https://github.com/reques6e/SystemUtilis/blob/main/API.md#отправка-смс-кода-для-смены-пароля
+    """
+
+    url = 'https://api.cyxym.net/app/v1?account.sendSMS'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data={'id': id, 'token': token}) as response:
+            if response.status == 200 or 401:
+                return await response.json()
+            else:
+                return False
+            
+async def change_password_confim(id: int, password: str, token: str, code: int) -> Union[Dict[str, Any], bool]:
+
+    """
+    Подтверждение изменения пароля
+
+    ```json
+    {
+        "response": {
+            "status": true,
+            "phone": "79*****9472"
+        }
+    }
+    ```
+    
+    API Docs: https://github.com/reques6e/SystemUtilis/blob/main/API.md#false
+    """
+
+    url = 'https://api.cyxym.net/app/v1?account.password'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data={'id': id, 'password': password,'token': token, 'code': code}) as response:
+            if response.status == 200 or 401:
+                return await response.json()
+            else:
+                return False
