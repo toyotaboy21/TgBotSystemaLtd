@@ -67,13 +67,12 @@ bot_token = '' # Сюда требуется вставить токен бот�
 
 ### Структура базы данных
 ```sql
-CREATE TABLE IF NOT EXISTS users(
-            user_id INTEGER PRIMARY KEY,
-            token TEXT,
-            id INTEGER,
-            password TEXT,
-            is_admin INTEGER 
-        )
+TABLE users
+      user_id INTEGER PRIMARY KEY,
+      token TEXT,
+      id INTEGER,
+      password TEXT,
+      is_admin INTEGER
 ```
 
 ## Исходники:
