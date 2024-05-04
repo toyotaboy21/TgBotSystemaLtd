@@ -530,39 +530,6 @@ async def grant_access_callback(callback_query: types.CallbackQuery):
     else:
         await bot.send_message(user_id, "У вас нет прав на выдачу администраторских прав.")
 
-@dp.message_handler(state=SomeState.waiting_for_user_id)
-async def process_user_id(message: types.Message, state: FSMContext):
-    try:
-        user_id = int(message.text)
-
-        cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
-        result = cursor.fetchone()
-
-        if result:
-            if user_id == message.from_user.id:
-                await bot.send_message(user_id, "Вы не можете выдать админа самому себе")
-            elif result[0]:
-                await bot.send_message(user_id, "Пользователь уже является администратором")
-            else:
-                cursor.execute("UPDATE users SET is_admin = 1 WHERE user_id = ?", (user_id,))
-                connection.commit()
-
-                await bot.send_message(user_id, "🥳")
-                await asyncio.sleep(1)
-                await bot.send_message(user_id, "Вам был предоставлен доступ к админ панели.")
-                await bot.send_message(
-                    message.chat.id,
-                    f"Пользователь с ID <code>{user_id}</code> получил доступ к админ панели.",
-                    parse_mode='HTML',
-                    reply_markup=generate_admin_keyboard()
-                )
-        else:
-            await message.reply("Пользователь с таким ID не найден в базе данных.")
-    except ValueError:
-        await message.reply("Ошибка. Введите корректный ID пользователя.")
-    finally:
-        await state.finish()
-
 @dp.callback_query_handler(lambda c: c.data == 'send_personal_message')
 async def send_personal_message(callback_query: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup()
@@ -621,6 +588,36 @@ async def revoke_access_from_user(callback_query: types.CallbackQuery):
                            parse_mode='HTML')
     await SomeState.waiting_to_revoke.set()
 
+@dp.message_handler(state=SomeState.waiting_for_user_id)
+async def process_user_id(message: types.Message, state: FSMContext):
+    try:
+        user_id = int(message.text)
+
+        cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if result:
+            if user_id == message.from_user.id:
+                await bot.send_message(user_id, "Вы не можете выдать админа самому себе")
+            elif result[0]:
+                await bot.send_message(user_id, "Пользователь уже является администратором")
+            else:
+                cursor.execute("UPDATE users SET is_admin = 1 WHERE user_id = ?", (user_id,))
+                connection.commit()
+                
+                await bot.send_message(
+                    message.chat.id,
+                    f"Пользователь с ID <code>{user_id}</code> получил доступ к админ панели.",
+                    parse_mode='HTML',
+                    reply_markup=generate_admin_keyboard()
+                )
+        else:
+            await message.reply("Пользователь с таким ID не найден в базе данных.")
+    except ValueError:
+        await message.reply("Ошибка. Введите корректный ID пользователя.")
+    finally:
+        await state.finish()
+        
 @dp.message_handler(state=SomeState.waiting_to_revoke)
 async def process_revoke_access(message: types.Message, state: FSMContext):
     try:
@@ -630,17 +627,12 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
         result = cursor.fetchone()
 
         if result:
-            if user_id == message.from_user.id:
-                await bot.send_message(user_id, "Вы не можете отозвать админа у себя")
-            elif result[0]:
+            if not result[0]:
                 await bot.send_message(user_id, "Пользователь не является администратором")
             else:
                 cursor.execute("UPDATE users SET is_admin = 0 WHERE user_id = ?", (user_id,))
                 connection.commit()
 
-                await bot.send_message(user_id, "☹️")
-                await asyncio.sleep(1)
-                await bot.send_message(user_id, "У вас был отозван доступ к админ панели.")
                 await bot.send_message(
                     message.chat.id,
                     f"У пользователя с ID <code>{user_id}</code> отозвали доступ к админ панели.",
@@ -653,7 +645,6 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
         await message.reply("Ошибка. Введите корректный ID пользователя.")
     finally:
         await state.finish()
-
         
 @dp.message_handler()
 async def handle_messages(message: types.Message):
