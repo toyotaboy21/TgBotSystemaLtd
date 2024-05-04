@@ -60,5 +60,9 @@ systemctl start tg_bot_systema.service
 bot_token = '' # Сюда требуется вставить токен бота который можно получить у https://t.me/BotFather, подробная инструкция: https://developers.sber.ru/help/salutebot/telegram-integration
 ```
 
+### Базовое окружение бота
+> Kali Linux
+>>> Python 3.11.8 (64-bit)
+
 ## Исходники:
 API - [Docs](https://github.com/reques6e/SystemUtilis/blob/main/API.md) (API v1 для обычных пользователей)
