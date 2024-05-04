@@ -11,8 +11,6 @@ bash
 ```
 Работает под сервисом `tg_bot_systema.service`:
 ```
-/etc/systemd/system/tg_bot_systema.service
-
 #!/bin/bash
 
 chmod +x main.py
@@ -41,6 +39,16 @@ systemctl start tg_bot_systema
 echo "Установка завершена."
 
 ```
+
+### Работа с сервисом
+Полный путь к сервису: `/etc/systemd/system/tg_bot_systema.service`
+
+Для того что бы остановить бота, через сервис,требуется ввести в консоль:
+`systemctl stop tg_bot_systema.service`
+Для того что бы перезапустить бота, через сервис,требуется ввести в консоль:
+`systemctl restart tg_bot_systema.service`
+Для того что бы запустить бота, через сервис,требуется ввести в консоль:
+`systemctl start tg_bot_systema.service`
 
 ## Исходники:
 API - [Docs](https://github.com/reques6e/SystemUtilis/blob/main/API.md) (API v1 для обычных пользователей)
