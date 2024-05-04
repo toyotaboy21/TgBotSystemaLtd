@@ -11,7 +11,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 
 from bot.bot import dp, bot
-from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment
+from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info
 from bot.keyboards.keyboard_admin import generate_admin_keyboard
 from bot.keyboards import keyboard as kb
 from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy
@@ -138,7 +138,126 @@ async def cancel_action(callback_query: types.CallbackQuery, state: FSMContext):
 
     await state.finish()
     await callback_query.answer("✅ Успешно отменено", show_alert=True)
+
+@dp.callback_query_handler(lambda c: c.data == 'cams')
+async def profile(callback_query: types.CallbackQuery):    
+    user_id = callback_query.from_user.id
     
+    locations_response = await get_locations()
+    if locations_response and locations_response.get('response'):
+        locations = locations_response['response']
+        
+        keyboard = InlineKeyboardMarkup()
+        for location in locations:
+            location_id = location['location_id']
+            location_name = location['location_name']
+            keyboard.insert(InlineKeyboardButton(location_name, callback_data=f'location_{location_id}'))
+        
+        await bot.edit_message_text(
+            chat_id=callback_query.from_user.id,
+            message_id=callback_query.message.message_id,
+            text='Выберите локацию:',
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+    else:
+        await bot.answer_callback_query(callback_query.id, "Ошибка при получении локаций")
+
+@dp.callback_query_handler(lambda c: c.data.startswith('location_'))
+async def location_selected(callback_query: types.CallbackQuery):
+    location_id = callback_query.data.split('_', 1)[-1]
+
+    cameras_response = await get_camera(location_id)
+    if cameras_response:
+        cameras = cameras_response['response']['cams']
+        camera_groups = [cameras[i:i+9] for i in range(0, len(cameras), 9)]
+        current_page = 0
+        
+        async def send_camera_message(page):
+            keyboard = InlineKeyboardMarkup()
+            for camera in camera_groups[page]:
+                camera_id = camera['channel']
+                camera_name = camera['name']
+                keyboard.insert(InlineKeyboardButton(camera_name, callback_data=f'camera_{camera_id}'))
+            
+            if len(camera_groups) > 1:
+                if page == 0:
+                    keyboard.row(InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'),
+                                 InlineKeyboardButton("Вперёд➡️", callback_data='next'))
+                elif page == len(camera_groups) - 1:
+                    keyboard.row(InlineKeyboardButton("⬅️ Назад", callback_data='back'),
+                                 InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'))
+                else:
+                    keyboard.row(InlineKeyboardButton("⬅️ Назад", callback_data='back'),
+                                 InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'),
+                                 InlineKeyboardButton("Вперёд➡️", callback_data='next'))
+            else:
+                keyboard.row(InlineKeyboardButton("🔙 Назад", callback_data='back'),
+                             InlineKeyboardButton("Удалить", callback_data='delete'),
+                             InlineKeyboardButton("Вперёд➡️", callback_data='next'))
+            
+            message_text = 'Выберите камеру:'
+            
+            if callback_query.message:
+                await bot.edit_message_text(
+                    chat_id=callback_query.message.chat.id,
+                    message_id=callback_query.message.message_id,
+                    text=message_text,
+                    reply_markup=keyboard
+                )
+            else:
+                await bot.send_message(
+                    callback_query.from_user.id,
+                    text=message_text,
+                    reply_markup=keyboard
+                )
+        
+        await send_camera_message(current_page)
+        
+        @dp.callback_query_handler(lambda c: c.data in {'back', 'next'})
+        async def handle_navigation(callback_query: types.CallbackQuery):
+            nonlocal current_page
+            if callback_query.data == 'back':
+                current_page = max(current_page - 1, 0)
+            elif callback_query.data == 'next':
+                current_page = min(current_page + 1, len(camera_groups) - 1)
+            await send_camera_message(current_page)
+        
+    else:
+        await bot.answer_callback_query(callback_query.id, "Ошибка при получении камер по локации")
+
+@dp.callback_query_handler(lambda c: c.data.startswith('camera_'))
+async def camera_selected(callback_query: types.CallbackQuery):
+    channel_name = callback_query.data.replace('camera_', '')
+    camera_response = await get_stream_info(channel_name)
+    if camera_response and camera_response.get('response'):
+        camera = camera_response['response']
+        image_url = camera.get('preview')
+        channel = camera.get('cam')['camera_name']
+        description = camera.get('cam')['camera_text']
+        link = camera.get('link')
+        weather = camera.get('weather', {}).get('fact', {})
+        temperature = weather.get('temp')
+        condition = weather.get('condition')
+        wind_speed = weather.get('wind_speed')
+        
+        message_text = f"📷 Канал: <b>{channel}</b>\n\n"
+        message_text += f"{description}\n\n"
+        message_text += f"🌡️ Температура: <b>{temperature}°C</b>\n"
+        message_text += f"☁️ Погодные условия: <b>{condition}</b>\n"
+        message_text += f"💨 Скорость ветра: <b>{wind_speed} м/c</b>\n\n"
+        
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(InlineKeyboardButton("Смотреть трансляцию", url=link))
+        keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="delete_admin_menu"))
+
+        if image_url:
+            await bot.send_photo(callback_query.from_user.id, image_url, caption=message_text, parse_mode="HTML", reply_markup=keyboard)
+        else:
+            await bot.send_message(callback_query.from_user.id, message_text, parse_mode="HTML", reply_markup=keyboard)
+    else:
+        await bot.answer_callback_query(callback_query.id, "Произошла ошибка при получении камеры")
+
 @dp.callback_query_handler(lambda c: c.data == 'profile')
 async def profile(callback_query: types.CallbackQuery):    
     user_id = callback_query.from_user.id
