@@ -11,10 +11,10 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 
 from bot.bot import dp, bot
-from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info
+from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info, change_password, change_password_confim
 from bot.keyboards.keyboard_admin import generate_admin_keyboard
 from bot.keyboards import keyboard as kb
-from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy
+from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy, ChangePasswordState
 
 
 connection = sqlite3.connect('bot/database/db.db')
@@ -298,6 +298,56 @@ async def profile(callback_query: types.CallbackQuery):
     await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                 message_id=callback_query.message.message_id,
                                 text=profile_text, parse_mode="HTML", reply_markup=keyboard)
+
+@dp.callback_query_handler(lambda c: c.data == 'change_password')
+async def change_password_callback(callback_query: types.CallbackQuery):
+    await bot.send_message(callback_query.from_user.id, "Введите новый пароль:")
+    await ChangePasswordState.first()
+
+@dp.message_handler(state=ChangePasswordState.waiting_for_new_password)
+async def process_new_password(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+
+    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = cursor.fetchone()
+
+    async with state.proxy() as data:
+        data['new_password'] = message.text
+
+        data['id'] = user_data[0]
+        data['token'] = user_data[1]
+
+    rs = await change_password(user_data[0], user_data[1])
+    if rs['response']['status']:
+        await message.answer(f"Введите SMS-код, который был отправлен на номер телефона +{rs['response']['phone']}:")
+        await ChangePasswordState.next()
+    else:
+        await message.answer(f"Не удалось отправить SMS-код.\n{rs['response']['message']}")
+        await state.finish()
+
+
+@dp.message_handler(state=ChangePasswordState.waiting_for_sms_code)
+async def process_sms_code(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+
+    code = message.text
+    async with state.proxy() as data:
+        id = data['id']
+        token = data['token']
+        new_password = data['new_password']
+
+        result = await change_password_confim(id, new_password, token, code)
+
+        cursor.execute("UPDATE users SET password = ? WHERE user_id = ?", (new_password, user_id))
+        connection.commit()
+        
+        if result:
+            await message.answer("Пароль успешно изменён.")
+        else:
+            await message.answer("Ошибка при изменении пароля. Пожалуйста, попробуйте ещё раз.")
+
+    await state.finish()
+
 
 @dp.callback_query_handler(lambda c: c.data == 'payment_history')
 async def payment_history(callback_query: types.CallbackQuery):
