@@ -1,10 +1,10 @@
 # Телеграм бот "Systema"
-<img src='assests/imgs/camera_1.png'>
-<img src='assests/imgs/pay-list.png'>
-<img src='assests/imgs/pay_create.png'>
-<img src='assests/imgs/pay_out.png'>
-<img src='assests/imgs/user_profile.png'>
-<img src='assests/imgs/admin_panel.png'>
+<img src='assets/imgs/camera_1.png'>
+<img src='assets/imgs/pay-list.png'>
+<img src='assets/imgs/pay_create.png'>
+<img src='assets/imgs/pay_out.png'>
+<img src='assets/imgs/user_profile.png'>
+<img src='assets/imgs/admin_panel.png'>
 # Установка
 Установщик [installer.bash](https://github.com/reques6e/TgBotSystemaLtd/blob/main/installer.bash)
 ```
