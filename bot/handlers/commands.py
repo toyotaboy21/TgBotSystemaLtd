@@ -1,5 +1,6 @@
 import aiogram
 import io
+import re
 import json
 import time
 import asyncio
@@ -193,18 +194,21 @@ async def location_selected(callback_query: types.CallbackQuery):
                                  InlineKeyboardButton("Вперёд➡️", callback_data='next'))
             else:
                 keyboard.row(InlineKeyboardButton("🔙 Назад", callback_data='back'),
-                             InlineKeyboardButton("Удалить", callback_data='delete'),
+                             InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'),
                              InlineKeyboardButton("Вперёд➡️", callback_data='next'))
             
             message_text = 'Выберите камеру:'
             
             if callback_query.message:
-                await bot.edit_message_text(
-                    chat_id=callback_query.message.chat.id,
-                    message_id=callback_query.message.message_id,
-                    text=message_text,
-                    reply_markup=keyboard
-                )
+                try:
+                    await bot.edit_message_text(
+                        chat_id=callback_query.message.chat.id,
+                        message_id=callback_query.message.message_id,
+                        text=message_text,
+                        reply_markup=keyboard
+                    )
+                except aiogram.utils.exceptions.MessageNotModified:
+                    await bot.answer_callback_query(callback_query.id, "Отображены все камеры")
             else:
                 await bot.send_message(
                     callback_query.from_user.id,
@@ -222,7 +226,6 @@ async def location_selected(callback_query: types.CallbackQuery):
             elif callback_query.data == 'next':
                 current_page = min(current_page + 1, len(camera_groups) - 1)
             await send_camera_message(current_page)
-        
     else:
         await bot.answer_callback_query(callback_query.id, "Ошибка при получении камер по локации")
 
@@ -240,6 +243,9 @@ async def camera_selected(callback_query: types.CallbackQuery):
         condition = weather.get('condition')
         wind_speed = weather.get('wind_speed')
         
+        description = re.sub(r'<\s*p\s*>', '', description)
+        description = re.sub(r'</\s*p\s*>', '', description)
+
         message_text = f"📷 Канал: <b>{channel}</b>\n\n"
         message_text += f"{description}\n\n"
         message_text += f"🌡️ Температура: <b>{temperature}°C</b>\n"
@@ -256,6 +262,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
             await bot.send_message(callback_query.from_user.id, message_text, parse_mode="HTML", reply_markup=keyboard)
     else:
         await bot.answer_callback_query(callback_query.id, "Произошла ошибка при получении камеры")
+
 
 @dp.callback_query_handler(lambda c: c.data == 'profile')
 async def profile(callback_query: types.CallbackQuery):    
