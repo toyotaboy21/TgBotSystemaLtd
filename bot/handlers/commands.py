@@ -247,6 +247,40 @@ async def camera_selected(callback_query: types.CallbackQuery):
         description = re.sub(r'<\s*p\s*>', '', description)
         description = re.sub(r'</\s*p\s*>', '', description)
 
+        if condition == 'clear':
+            condition = 'Ясно'
+        elif condition == 'partly-cloudy':
+            condition = 'Малооблачно'
+        elif condition == 'cloudy':
+            condition = 'Облачно с прояснениями'
+        elif condition == 'overcast':
+            condition = 'Пасмурно'
+        elif condition == 'light-rain':
+            condition = 'Небольшой дождь'
+        elif condition == 'rain':
+            condition = 'Дождь'
+        elif condition == 'heavy-rain':
+            condition = 'Сильный дождь'
+        elif condition == 'showers':
+            condition = 'Ливень'
+        elif condition == 'wet-snow':
+            condition = 'Дождь со снегом'
+        elif condition == 'light-snow':
+            condition = 'Небольшой снег'
+        elif condition == 'snow':
+            condition = 'Снег'
+        elif condition == 'snow-showers':
+            condition = 'Снегопад'
+        elif condition == 'hail':
+            condition = 'Град'
+        elif condition == 'thunderstorm':
+            condition = 'Гроза'
+        elif condition == 'thunderstorm-with-rain':
+            condition = 'Дождь с грозой'
+        elif condition == 'thunderstorm-with-hail':
+            condition = 'Гроза с градом'
+
+
         message_text = f"📷 Канал: <b>{channel}</b>\n\n"
         message_text += f"{description}\n\n"
         message_text += f"🌡️ Температура: <b>{temperature}°C</b>\n"
