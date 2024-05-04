@@ -15,3 +15,7 @@ class Registration(StatesGroup):
 
 class SubscribeBuy(StatesGroup):
     waiting_for_amount = State()
+
+class ChangePasswordState(StatesGroup):
+    waiting_for_new_password = State() 
+    waiting_for_sms_code = State() 
