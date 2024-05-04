@@ -2,7 +2,6 @@
 
 # Установка
 Установщик [installer.bash](https://github.com/reques6e/TgBotSystemaLtd/blob/main/installer.bash)
-В терминале: 
 ```
 bash
 ┌──(reques6e㉿kali)-[~/Desktop/Project/TgBotCyxym]
