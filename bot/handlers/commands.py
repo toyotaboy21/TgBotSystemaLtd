@@ -207,7 +207,10 @@ async def location_selected(callback_query: types.CallbackQuery):
                         reply_markup=keyboard
                     )
                 except aiogram.utils.exceptions.MessageNotModified:
-                    await bot.answer_callback_query(callback_query.id, "Отображены все камеры")
+                    try:
+                        await bot.answer_callback_query(callback_query.id, "Отображены все камеры")
+                    except:
+                        pass
                 except aiogram.utils.exceptions.MessageToEditNotFound:
                     pass
             else:
@@ -233,6 +236,7 @@ async def location_selected(callback_query: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data.startswith('camera_'))
 async def camera_selected(callback_query: types.CallbackQuery):
     channel_name = callback_query.data.replace('camera_', '')
+
     camera_response = await get_stream_info(channel_name)
     if camera_response and camera_response.get('response'):
         camera = camera_response['response']
@@ -280,6 +284,8 @@ async def camera_selected(callback_query: types.CallbackQuery):
         elif condition == 'thunderstorm-with-hail':
             condition = 'Гроза с градом'
 
+        if len(description) > 430: # 430, имеется ввиду, максимальное кол-во символов в description
+            description = description[:430-3] + '...'
 
         message_text = f"📷 Канал: <b>{channel}</b>\n\n"
         message_text += f"{description}\n\n"
@@ -291,10 +297,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
         keyboard.add(InlineKeyboardButton("Смотреть трансляцию", url=f'https://apsny.camera/?{camera.get("channel")}'))
         keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="button_delete_message"))
 
-        if image_url:
-            await bot.send_photo(callback_query.from_user.id, image_url, caption=message_text, parse_mode="HTML", reply_markup=keyboard)
-        else:
-            await bot.send_message(callback_query.from_user.id, message_text, parse_mode="HTML", reply_markup=keyboard)
+        await bot.send_photo(callback_query.from_user.id, image_url, caption=message_text, parse_mode="HTML", reply_markup=keyboard)
     else:
         await bot.answer_callback_query(callback_query.id, "Произошла ошибка при получении камеры")
 
