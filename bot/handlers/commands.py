@@ -43,9 +43,9 @@ async def start(message: types.Message, state: FSMContext):
         await message.answer("Добро пожаловать! Для начала работы введите ваш ID:")
         await Registration.waiting_for_token.set()
     else:
-        user_id, is_admin = result
+        is_admin = result
         welcome_message = f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>"
-        await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(user_id, is_admin))
+        await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin))
 
 @dp.message_handler(commands=['re_auth'], state="*")
 async def re_auth(message: types.Message, state: FSMContext):
@@ -70,7 +70,6 @@ async def re_auth(message: types.Message, state: FSMContext):
         await message.answer("Профиль не найден в базе данных.")
 
     await state.finish()
-
 
 @dp.message_handler(state=Registration.waiting_for_token)
 async def process_token_input(message: types.Message, state: FSMContext):
@@ -97,7 +96,6 @@ async def process_id_input(message: types.Message, state: FSMContext):
     else:
         await message.reply(f"Неверный логин или пароль")
     
-
 @dp.callback_query_handler(lambda c: c.data.startswith('delete_message_'))
 async def delete_message(callback_query: types.CallbackQuery):
     chat_id = callback_query.message.chat.id
@@ -105,7 +103,6 @@ async def delete_message(callback_query: types.CallbackQuery):
     await bot.delete_message(chat_id, message_id=callback_query.message.message_id)
     await bot.answer_callback_query(callback_query.id, text="Сообщение удалено", show_alert=True)
     
-
 @dp.callback_query_handler(lambda c: c.data == 'info')
 async def process_callback_button(callback_query: types.CallbackQuery):
     keyboard = kb.generate_keyboard_info()
@@ -441,7 +438,6 @@ async def process_personal_message_text(message: types.Message, state: FSMContex
     finally:
         await state.finish()
 
-
 @dp.callback_query_handler(lambda c: c.data == 'revoke_access')
 async def revoke_access_from_user(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,
@@ -483,7 +479,6 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
     finally:
         await state.finish()
 
-
 @dp.message_handler()
 async def handle_messages(message: types.Message):
     user_id = message.from_user.id
@@ -494,7 +489,6 @@ async def handle_messages(message: types.Message):
     except Exception as e:
         await message.reply(f"<b>⚠️ К сожалению, я не смог распознать Вашу команду.</b>", parse_mode='HTML', reply_markup=kb.keyboard)
         
-
 @dp.callback_query_handler(lambda c: c.data == 'delete_info_message')
 async def delete_info_message(callback_query: types.CallbackQuery):
     chat_id = callback_query.message.chat.id
@@ -502,14 +496,12 @@ async def delete_info_message(callback_query: types.CallbackQuery):
 
     await bot.delete_message(chat_id, message_id=message_id)    
 
-
 @dp.callback_query_handler(lambda c: c.data == 'delete_admin_menu')
 async def delete_admin_menu(callback_query: types.CallbackQuery):
     chat_id = callback_query.message.chat.id
     message_id = callback_query.message.message_id
 
     await bot.delete_message(chat_id, message_id=message_id) 
-
 
 @dp.callback_query_handler(lambda c: c.data == 'mailing')
 async def mailing_text(callback_query: types.CallbackQuery, state: FSMContext):
