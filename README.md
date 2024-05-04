@@ -54,5 +54,11 @@ systemctl restart tg_bot_systema.service
 systemctl start tg_bot_systema.service
 ```
 
+### Настройка файлов конфигурации
+> Файл конфигурации бота: `config.py`
+```python
+bot_token = '' # Сюда требуется вставить токен бота который можно получить у https://t.me/BotFather, подробная инструкция: https://developers.sber.ru/help/salutebot/telegram-integration
+```
+
 ## Исходники:
 API - [Docs](https://github.com/reques6e/SystemUtilis/blob/main/API.md) (API v1 для обычных пользователей)
