@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 def generate_main_menu(is_admin=False):
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔎 Камеры", callback_data='checker'),
+    markup.add(InlineKeyboardButton("🔎 Камеры", callback_data='cams'),
                InlineKeyboardButton("👤 Профиль", callback_data='profile'))
     markup.add(InlineKeyboardButton("❔ Инфо", callback_data='info'))
 
