@@ -235,7 +235,6 @@ async def camera_selected(callback_query: types.CallbackQuery):
         image_url = camera.get('preview')
         channel = camera.get('cam')['camera_name']
         description = camera.get('cam')['camera_text']
-        link = camera.get('link')
         weather = camera.get('weather', {}).get('fact', {})
         temperature = weather.get('temp')
         condition = weather.get('condition')
@@ -248,7 +247,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
         message_text += f"💨 Скорость ветра: <b>{wind_speed} м/c</b>\n\n"
         
         keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("Смотреть трансляцию", url=link))
+        keyboard.add(InlineKeyboardButton("Смотреть трансляцию", url=f'https://apsny.camera/?{camera.get("channel")}'))
         keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="delete_admin_menu"))
 
         if image_url:
