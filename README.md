@@ -5,6 +5,7 @@
 <img src='assets/imgs/pay_out.png'>
 <img src='assets/imgs/user_profile.png'>
 <img src='assets/imgs/admin_panel.png'>
+
 # Установка
 Установщик [installer.bash](https://github.com/reques6e/TgBotSystemaLtd/blob/main/installer.bash)
 ```
