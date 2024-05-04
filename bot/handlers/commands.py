@@ -39,12 +39,11 @@ async def start(message: types.Message, state: FSMContext):
 
     cursor.execute("SELECT user_id, is_admin FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
-
     if not result:
         await message.answer("Добро пожаловать! Для начала работы введите ваш ID:")
         await Registration.waiting_for_token.set()
     else:
-        is_admin = result
+        is_admin = result[1]
         welcome_message = f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>"
         await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin))
 
@@ -141,7 +140,7 @@ async def cancel_action(callback_query: types.CallbackQuery, state: FSMContext):
     await callback_query.answer("✅ Успешно отменено", show_alert=True)
 
 @dp.callback_query_handler(lambda c: c.data == 'cams')
-async def profile(callback_query: types.CallbackQuery):    
+async def get_cams_list(callback_query: types.CallbackQuery):    
     user_id = callback_query.from_user.id
     
     locations_response = await get_locations()
@@ -183,18 +182,18 @@ async def location_selected(callback_query: types.CallbackQuery):
             
             if len(camera_groups) > 1:
                 if page == 0:
-                    keyboard.row(InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'),
+                    keyboard.row(InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'),
                                  InlineKeyboardButton("Вперёд➡️", callback_data='next'))
                 elif page == len(camera_groups) - 1:
                     keyboard.row(InlineKeyboardButton("⬅️ Назад", callback_data='back'),
-                                 InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'))
+                                 InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'))
                 else:
                     keyboard.row(InlineKeyboardButton("⬅️ Назад", callback_data='back'),
-                                 InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'),
+                                 InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'),
                                  InlineKeyboardButton("Вперёд➡️", callback_data='next'))
             else:
                 keyboard.row(InlineKeyboardButton("🔙 Назад", callback_data='back'),
-                             InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu'),
+                             InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'),
                              InlineKeyboardButton("Вперёд➡️", callback_data='next'))
             
             message_text = 'Выберите камеру:'
@@ -209,6 +208,8 @@ async def location_selected(callback_query: types.CallbackQuery):
                     )
                 except aiogram.utils.exceptions.MessageNotModified:
                     await bot.answer_callback_query(callback_query.id, "Отображены все камеры")
+                except aiogram.utils.exceptions.MessageToEditNotFound:
+                    pass
             else:
                 await bot.send_message(
                     callback_query.from_user.id,
@@ -254,7 +255,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
         
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Смотреть трансляцию", url=f'https://apsny.camera/?{camera.get("channel")}'))
-        keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="delete_admin_menu"))
+        keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="button_delete_message"))
 
         if image_url:
             await bot.send_photo(callback_query.from_user.id, image_url, caption=message_text, parse_mode="HTML", reply_markup=keyboard)
@@ -594,7 +595,7 @@ async def process_personal_message_text(message: types.Message, state: FSMContex
         user_id = data.get('user_id')
         personal_message = message.text
 
-        delete_button = types.InlineKeyboardButton("🗑Удалить", callback_data='delete_admin_menu')
+        delete_button = types.InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message')
         delete_message = types.InlineKeyboardMarkup().add(delete_button)
         await bot.send_message(
             user_id,
@@ -624,29 +625,28 @@ async def revoke_access_from_user(callback_query: types.CallbackQuery):
 async def process_revoke_access(message: types.Message, state: FSMContext):
     try:
         user_id = int(message.text)
-        db = '123'
 
-        if str(user_id) in db:
-            if user_id == str(message.from_user.id):
-                await bot.send_message(user_id, "Вы не можете отозвать админа у себя.")
-            if db[str(user_id)]["is_admin"] == False:
-                await bot.send_message(user_id, "Пользователь не являлся администратором")
-                return 
+        cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if result:
+            if user_id == message.from_user.id:
+                await bot.send_message(user_id, "Вы не можете отозвать админа у себя")
+            elif result[0]:
+                await bot.send_message(user_id, "Пользователь не является администратором")
             else:
-                db[str(user_id)]["is_admin"] = False
-                
-                try:
-                    await bot.send_message(user_id, "🥳")
-                    time.sleep(1)
-                    await bot.send_message(user_id, "У вас отозвали доступ к админ панели")
-                    await bot.send_message(
-                        message.chat.id,
-                        f"У пользователя с ID <code>{user_id}</code> отозвали доступ к админ панели.",
-                        parse_mode='HTML',
-                        reply_markup=generate_admin_keyboard()
-                    )
-                except ChatNotFound:
-                    pass
+                cursor.execute("UPDATE users SET is_admin = 0 WHERE user_id = ?", (user_id,))
+                connection.commit()
+
+                await bot.send_message(user_id, "☹️")
+                await asyncio.sleep(1)
+                await bot.send_message(user_id, "У вас был отозван доступ к админ панели.")
+                await bot.send_message(
+                    message.chat.id,
+                    f"У пользователя с ID <code>{user_id}</code> отозвали доступ к админ панели.",
+                    parse_mode='HTML',
+                    reply_markup=generate_admin_keyboard()
+                )
         else:
             await message.reply("Пользователь с таким ID не найден в базе данных.")
     except ValueError:
@@ -654,13 +654,12 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
     finally:
         await state.finish()
 
+        
 @dp.message_handler()
 async def handle_messages(message: types.Message):
-    user_id = message.from_user.id
-
     try:
         await bot.delete_message(message.chat.id, message.message_id)
-        await bot.send_sticker(message.chat.id, 'CAACAgIAAxkBAAJc5GVXHyKMoj-oSZYYNhrirj9egu_DAAIoAwACtXHaBpB6SodelUpuMwQ')
+        await message.reply(f"<b>⚠️ К сожалению, я не смог распознать Вашу команду.</b>", parse_mode='HTML', reply_markup=kb.keyboard)
     except Exception as e:
         await message.reply(f"<b>⚠️ К сожалению, я не смог распознать Вашу команду.</b>", parse_mode='HTML', reply_markup=kb.keyboard)
         
@@ -671,8 +670,8 @@ async def delete_info_message(callback_query: types.CallbackQuery):
 
     await bot.delete_message(chat_id, message_id=message_id)    
 
-@dp.callback_query_handler(lambda c: c.data == 'delete_admin_menu')
-async def delete_admin_menu(callback_query: types.CallbackQuery):
+@dp.callback_query_handler(lambda c: c.data == 'button_delete_message')
+async def button_delete_message(callback_query: types.CallbackQuery):
     chat_id = callback_query.message.chat.id
     message_id = callback_query.message.message_id
 
