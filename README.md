@@ -87,6 +87,6 @@ TABLE users
 
 ## Исходники:
 
-API - [Docs](https://github.com/reques6e/SystemUtilis/blob/main/API.md) (API v1 для обычных пользователей)
+API Systema Ltd - [Docs](https://github.com/reques6e/SystemUtilis/blob/main/API.md) (API v1 для обычных пользователей)
 
 API Yandex Weather - [Docs](https://yandex.ru/dev/weather/doc/ru/concepts/forecast-rest#req-example)
