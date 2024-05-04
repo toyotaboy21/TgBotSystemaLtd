@@ -683,10 +683,10 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
 @dp.message_handler()
 async def handle_messages(message: types.Message):
     try:
-        await bot.delete_message(message.chat.id, message.message_id)
-        await message.reply(f"<b>⚠️ К сожалению, я не смог распознать Вашу команду.</b>", parse_mode='HTML', reply_markup=kb.keyboard)
+        await message.delete()
+        await message.answer("К сожалению, я не смог распознать Вашу команду.")
     except Exception as e:
-        await message.reply(f"<b>⚠️ К сожалению, я не смог распознать Вашу команду.</b>", parse_mode='HTML', reply_markup=kb.keyboard)
+        await message.answer("К сожалению, я не смог распознать Вашу команду.")
         
 @dp.callback_query_handler(lambda c: c.data == 'delete_info_message')
 async def delete_info_message(callback_query: types.CallbackQuery):
