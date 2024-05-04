@@ -1,7 +1,8 @@
 # Телеграм бот "Systema"
+
+<img src='assets/imgs/camera_1.png'>
 <details>
-  <summary>Нажмите, чтобы отобразить/скрыть фото</summary>
-  <img src='assets/imgs/camera_1.png'>
+  <summary>Смотреть больше фото</summary>
   <img src='assets/imgs/pay-list.png'>
   <img src='assets/imgs/pay_create.png'>
   <img src='assets/imgs/pay_out.png'>
