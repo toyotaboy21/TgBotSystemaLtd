@@ -65,5 +65,16 @@ bot_token = '' # Сюда требуется вставить токен бот�
 > Kali Linux (Python 3.11.8 (64-bit))
 >> Ядер: 2, AMD/INTEL, 2 GB RAM, 15 GB HDD/M2 NvMe, 200 Мбит
 
+### Структура базы данных
+```sql
+CREATE TABLE IF NOT EXISTS users(
+            user_id INTEGER PRIMARY KEY,
+            token TEXT,
+            id INTEGER,
+            password TEXT,
+            is_admin INTEGER 
+        )
+```
+
 ## Исходники:
 API - [Docs](https://github.com/reques6e/SystemUtilis/blob/main/API.md) (API v1 для обычных пользователей)
