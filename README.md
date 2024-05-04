@@ -86,5 +86,7 @@ TABLE users
 >> Ядер: 2, AMD/INTEL, 2 GB RAM, 15 GB HDD/M2 NvMe, 200 Мбит
 
 ## Исходники:
+
 API - [Docs](https://github.com/reques6e/SystemUtilis/blob/main/API.md) (API v1 для обычных пользователей)
+
 API Yandex Weather - [Docs](https://yandex.ru/dev/weather/doc/ru/concepts/forecast-rest#req-example)
