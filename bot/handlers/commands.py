@@ -91,7 +91,7 @@ async def process_id_input(message: types.Message, state: FSMContext):
         connection.commit()
 
         await message.reply(f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>",
-                            parse_mode="HTML", reply_markup=kb.generate_main_menu(user_id))
+                            parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=False))
         await state.finish()
     else:
         await message.reply(f"Неверный логин или пароль")
