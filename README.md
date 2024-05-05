@@ -79,6 +79,10 @@ TABLE users
       id INTEGER,
       password TEXT,
       is_admin INTEGER
+
+TABLE favorites
+      user_id INTEGER PRIMARY KEY,
+      cams TEXT
 ```
 
 ### Базовое окружение бота и системные требования
