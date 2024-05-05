@@ -31,6 +31,12 @@ async def on_startup_commands(_):
         )''')
     connection.commit()
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS favorites(
+            user_id INTEGER PRIMARY KEY,
+            cams TEXT
+        )''')
+    connection.commit()
+
     print('Бот запущен!')
 
 @dp.message_handler(commands=['start'], state="*")
@@ -88,6 +94,9 @@ async def process_id_input(message: types.Message, state: FSMContext):
     rs = await auth_profile(id, password)
     if rs['response']['status']:
         cursor.execute('INSERT INTO users (user_id, token, id, password, is_admin) VALUES (?, ?, ?, ?, ?)', (user_id, rs['response']['token'], id, password, 0))
+        connection.commit()
+
+        cursor.execute('INSERT INTO favorites (user_id, cams) VALUES (?, ?)', (user_id, '[]'))
         connection.commit()
 
         await message.reply(f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>",
@@ -236,6 +245,16 @@ async def location_selected(callback_query: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data.startswith('camera_'))
 async def camera_selected(callback_query: types.CallbackQuery):
     channel_name = callback_query.data.replace('camera_', '')
+    user_id = callback_query.from_user.id
+
+    async def is_favorite(user_id, channel_name):
+        cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        if row:
+            favorites = json.loads(row[0])
+            return channel_name in favorites
+        else:
+            return False
 
     camera_response = await get_stream_info(channel_name)
     if camera_response and camera_response.get('response'):
@@ -251,40 +270,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
         description = re.sub(r'<\s*p\s*>', '', description)
         description = re.sub(r'</\s*p\s*>', '', description)
 
-        if condition == 'clear':
-            condition = 'Ясно'
-        elif condition == 'partly-cloudy':
-            condition = 'Малооблачно'
-        elif condition == 'cloudy':
-            condition = 'Облачно с прояснениями'
-        elif condition == 'overcast':
-            condition = 'Пасмурно'
-        elif condition == 'light-rain':
-            condition = 'Небольшой дождь'
-        elif condition == 'rain':
-            condition = 'Дождь'
-        elif condition == 'heavy-rain':
-            condition = 'Сильный дождь'
-        elif condition == 'showers':
-            condition = 'Ливень'
-        elif condition == 'wet-snow':
-            condition = 'Дождь со снегом'
-        elif condition == 'light-snow':
-            condition = 'Небольшой снег'
-        elif condition == 'snow':
-            condition = 'Снег'
-        elif condition == 'snow-showers':
-            condition = 'Снегопад'
-        elif condition == 'hail':
-            condition = 'Град'
-        elif condition == 'thunderstorm':
-            condition = 'Гроза'
-        elif condition == 'thunderstorm-with-rain':
-            condition = 'Дождь с грозой'
-        elif condition == 'thunderstorm-with-hail':
-            condition = 'Гроза с градом'
-
-        if len(description) > 430: # 430, имеется ввиду, максимальное кол-во символов в description
+        if len(description) > 430:
             description = description[:430-3] + '...'
 
         message_text = f"📷 Канал: <b>{channel}</b>\n\n"
@@ -294,13 +280,84 @@ async def camera_selected(callback_query: types.CallbackQuery):
         message_text += f"💨 Скорость ветра: <b>{wind_speed} м/c</b>\n\n"
         
         keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("Смотреть трансляцию", url=f'https://apsny.camera/?{camera.get("channel")}'))
+        if await is_favorite(callback_query.from_user.id, camera.get("channel")):
+            keyboard.add(InlineKeyboardButton("📺Смотреть трансляцию", url=f'https://apsny.camera/?{camera.get("channel")}'))
+            keyboard.add(InlineKeyboardButton("🗑Удалить из избранного", callback_data=f"remove_from_favorites_{channel_name}")) # Изменено на channel_name
+        else:
+            keyboard.add(InlineKeyboardButton("📺Смотреть трансляцию", url=f'https://apsny.camera/?{camera.get("channel")}'))
+            keyboard.add(InlineKeyboardButton("⭐ В избранное", callback_data=f"add_to_favorites_{channel_name}")) # Изменено на channel_name
         keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="button_delete_message"))
 
         await bot.send_photo(callback_query.from_user.id, image_url, caption=message_text, parse_mode="HTML", reply_markup=keyboard)
     else:
         await bot.answer_callback_query(callback_query.id, "Произошла ошибка при получении камеры")
 
+@dp.callback_query_handler(lambda c: c.data.startswith('remove_from_favorites_'))
+async def remove_from_favorites(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    channel_name = callback_query.data.replace('remove_from_favorites_', '')
+    
+    cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    if row:
+        favorites = json.loads(row[0])
+        if channel_name in favorites:
+            favorites.remove(channel_name)
+            cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
+            connection.commit()
+            await bot.answer_callback_query(callback_query.id, "Камера удалена из избранного")
+            return
+
+    await bot.answer_callback_query(callback_query.id, "Камера не найдена в избранном")
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('add_to_favorites_'))
+async def add_to_favorites(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    channel_name = callback_query.data.replace('add_to_favorites_', '') 
+    
+    cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    if row:
+        favorites = json.loads(row[0])
+    else:
+        favorites = []
+
+    if len(favorites) >= 9: # Ограничения, больше 9 камер нельзя.
+        await bot.answer_callback_query(callback_query.id, "Вы достигли максимального количества избранных камер (9)")
+        return
+
+    favorites.append(channel_name)
+
+    cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
+    connection.commit()
+
+    await bot.answer_callback_query(callback_query.id, "Камера добавлена в избранное")
+
+
+@dp.callback_query_handler(lambda c: c.data == 'get_favorites')
+async def get_favorites(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+
+    cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+
+    if row:
+        favorites = json.loads(row[0])
+        if favorites:
+            message_text = "Ваши избранные камеры:"
+            keyboard = InlineKeyboardMarkup()
+            for favorite in favorites:
+                keyboard.add(InlineKeyboardButton(favorite, callback_data=f'camera_{favorite}'))
+        else:
+            message_text = "Ваши избранные камеры пусты."
+            keyboard = None
+    else:
+        message_text = "У вас пока нет избранных камер."
+        keyboard = None
+
+    await bot.send_message(callback_query.from_user.id, message_text, reply_markup=keyboard)
+    await bot.answer_callback_query(callback_query.id) 
 
 @dp.callback_query_handler(lambda c: c.data == 'profile')
 async def profile(callback_query: types.CallbackQuery):    
