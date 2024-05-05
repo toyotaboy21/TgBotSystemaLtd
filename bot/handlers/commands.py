@@ -49,9 +49,8 @@ async def start(message: types.Message, state: FSMContext):
         await message.answer("Добро пожаловать! Для начала работы введите ваш ID:")
         await Registration.waiting_for_token.set()
     else:
-        is_admin = result[1]
         welcome_message = f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>"
-        await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin))
+        await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=False))
 
 @dp.message_handler(commands=['re_auth'], state="*")
 async def re_auth(message: types.Message, state: FSMContext):
