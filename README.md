@@ -1,6 +1,6 @@
 # Телеграм бот "Systema"
 
-<img src='assets/imgs/camera_1.png'>
+<img src='assets/imgs/camera_1.png.png'>
 <details>
   <summary>Смотреть больше фото</summary>
   <img src='assets/imgs/pay-list.png'>
