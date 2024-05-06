@@ -12,7 +12,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=$(pwd)
-ExecStart=$(which python) main.py
+ExecStart=python main.py
 Restart=always
 
 [Install]
