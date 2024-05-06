@@ -531,3 +531,27 @@ async def change_password_confim(id: int, password: str, token: str, code: int) 
                 return await response.json()
             else:
                 return False
+            
+async def lock_lk_rs(id: int, token: str, lock: int) -> Union[Dict[str, Any], bool]:
+
+    """
+    Подтверждение изменения пароля
+
+    ```json
+    {
+        "response": {
+            "status": true
+        }
+    }
+    ```
+    
+    API Docs: https://github.com/reques6e/SystemUtilis/blob/main/API.md#временная-блокировка-лк
+    """
+
+    url = 'https://api.cyxym.net/app/v1?account.lock'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data={'id': id, 'token': token,'token': token, 'lock': lock}) as response:
+            if response.status == 200 or 401:
+                return await response.json()
+            else:
+                return False
