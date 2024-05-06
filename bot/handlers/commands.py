@@ -62,6 +62,15 @@ async def start(message: types.Message, state: FSMContext):
         welcome_message = f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>\n\nЗакрытый репозиторий для разработчиков бота: https://github.com/reques6e/TgBotSystemaLtd/"
         await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=result[1]))
 
+@dp.message_handler(commands=['del_data'])
+async def del_data(message: types.Message):
+    user_id = str(message.from_user.id)
+
+    cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+    connection.commit()
+    
+    await message.reply(f"Данные для пользователя с user_id {user_id} успешно удалены.")
+    
 @dp.message_handler(commands=['re_auth'], state="*")
 async def re_auth(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
