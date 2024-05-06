@@ -12,7 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 
 from bot.bot import dp, bot
-from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info, change_password, change_password_confim
+from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info, change_password, change_password_confim, lock_lk_rs
 from bot.keyboards.keyboard_admin import generate_admin_keyboard
 from bot.keyboards import keyboard as kb
 from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy, ChangePasswordState
@@ -70,7 +70,7 @@ async def del_data(message: types.Message):
     connection.commit()
     
     await message.reply(f"Данные для пользователя с user_id {user_id} успешно удалены.")
-    
+
 @dp.message_handler(commands=['re_auth'], state="*")
 async def re_auth(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -412,10 +412,17 @@ async def profile(callback_query: types.CallbackQuery):
         tariff = data['tariff']
         state = data['state']
         last_pay = data['last_pay']
+        is_locked = data['is_locked']
+
+        if is_locked:
+            is_lock_desc = 'Не заблокирован'
+        else:
+            is_lock_desc = 'Заблокирован'
 
         profile_text = f"🙋🏻‍♂️ Твой ID: [<code>{user_id}</code>]\n" \
                     f"💰 Баланс: <b>{balance}</b>\n" \
                     f"📜 Лицевой счет: <b>{account_number}</b>\n" \
+                    f"💣 Статус блокировк: <b>{is_lock_desc}</b>\n" \
                     f"📅 Дата последнего платежа: <b>{last_payment_date}</b>\n" \
                     f"💳 Последнее пополнение: <b>{last_pay}</b>\n" \
                     f"🔍 Состояние: <b>{state}</b>\n" \
@@ -431,14 +438,41 @@ async def profile(callback_query: types.CallbackQuery):
     buy_balance = InlineKeyboardButton("💰 Пополнить баланс", callback_data='subscribe_buy')      
     payment_history = InlineKeyboardButton("📅 История платежей", callback_data='payment_history')           
     change_password = InlineKeyboardButton("🔑 Сменить пароль", callback_data='change_password') 
-    back_button = InlineKeyboardButton("🔙 Назад", callback_data='back_to_start')
     promised_payment = InlineKeyboardButton("📅 Обещанный платёж", callback_data='promised_payment')
+    lock_lk = InlineKeyboardButton("💣 Блокировка ЛК", callback_data='lock_lk')
+    back_button = InlineKeyboardButton("🔙 Назад", callback_data='back_to_start')
 
-    keyboard = InlineKeyboardMarkup().row(buy_balance, payment_history).row(change_password, back_button).add(promised_payment)
+    keyboard = InlineKeyboardMarkup().row(buy_balance, payment_history).row(change_password, lock_lk).add(promised_payment, back_button)
 
     await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                 message_id=callback_query.message.message_id,
                                 text=profile_text, parse_mode="HTML", reply_markup=keyboard)
+
+@dp.callback_query_handler(lambda c: c.data == 'lock_lk')
+async def lock_lk(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+
+    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = cursor.fetchone()
+    
+    if user_data:
+        rs = await fetch_profile(cursor, user_id)
+        if rs['response']['data']['is_locked']:
+            is_lock = 0
+            is_lock_desc = 'Заблокирован'
+        else:
+            is_lock = 1
+            is_lock_desc = 'Не заблокирован'
+            
+        status = await lock_lk_rs(id, user_data[1], is_lock)
+
+        if status:
+            await bot.send_message(user_id, f"Статус блокировки: {is_lock_desc}")
+            await bot.answer_callback_query(callback_query.id, "Обещанный платёж успешно активирован")
+        else:
+            await bot.answer_callback_query(callback_query.id, "Обещанный платёж не был активирован")
+    else:
+        await bot.answer_callback_query(callback_query.id, "Ваш профиль не определён")
 
 @dp.callback_query_handler(lambda c: c.data == 'change_password')
 async def change_password_callback(callback_query: types.CallbackQuery):
@@ -599,29 +633,32 @@ async def activate_promised_payment(callback_query: types.CallbackQuery):
 async def subscribe_buy(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    await bot.send_message(user_id, "Введите сумму для пополнения платежа:")
+    await bot.send_message(user_id, "Введите сумму для пополнения баланса:")
     await SubscribeBuy.waiting_for_amount.set()
 
 @dp.message_handler(state=SubscribeBuy.waiting_for_amount)
 async def process_amount(message: types.Message, state: FSMContext):
-    amount = message.text
+    amount = int(message.text)
     user_id = message.from_user.id
 
-    cursor.execute("SELECT id FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
-    if user_data:
-        id = user_data[0]
-        pay_link = await generate_pay_link(id, amount)
-
-        text = f"Ваша ссылка для пополнения лицевого счёта:" \
-               f"\n\n{pay_link}\n\n" \
-               f"Ссылка работает: <b>10 минут</b>\n" \
-               f"Сумма пополнения: <b>{amount}</b>" \
-               f"\n\n⚠️Ваш баланс автоматически пополнится после оплаты."
-        
-        await message.reply(text, parse_mode="HTML")
+    if amount >= 25000:
+        await message.reply("Введите сумму меньше 25000")
     else:
-        await message.reply("Пользователь не найден в базе данных.")
+        cursor.execute("SELECT id FROM users WHERE user_id = ?", (user_id,))
+        user_data = cursor.fetchone()
+        if user_data:
+            id = user_data[0]
+            pay_link = await generate_pay_link(id, amount)
+
+            text = f"Ваша ссылка для пополнения лицевого счёта:" \
+                f"\n\n{pay_link}\n\n" \
+                f"Ссылка работает: <b>10 минут</b>\n" \
+                f"Сумма пополнения: <b>{amount}</b>" \
+                f"\n\n⚠️Ваш баланс автоматически пополнится после оплаты."
+            
+            await message.reply(text, parse_mode="HTML")
+        else:
+            await message.reply("Пользователь не найден в базе данных.")
 
     await state.finish()
     
