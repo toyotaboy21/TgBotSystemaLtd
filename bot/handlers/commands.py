@@ -415,9 +415,9 @@ async def profile(callback_query: types.CallbackQuery):
         is_locked = data['is_locked']
 
         if is_locked:
-            is_lock_desc = 'Не заблокирован'
-        else:
             is_lock_desc = 'Заблокирован'
+        else:
+            is_lock_desc = 'Не заблокирован'
 
         profile_text = f"🙋🏻‍♂️ Твой ID: [<code>{user_id}</code>]\n" \
                     f"💰 Баланс: <b>{balance}</b>\n" \
