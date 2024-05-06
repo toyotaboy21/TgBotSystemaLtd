@@ -459,18 +459,17 @@ async def lock_lk(callback_query: types.CallbackQuery):
         rs = await fetch_profile(cursor, user_id)
         if rs['response']['data']['is_locked']:
             is_lock = 0
-            is_lock_desc = 'Заблокирован'
+            is_lock_desc = 'Не заблокирован'
         else:
             is_lock = 1
-            is_lock_desc = 'Не заблокирован'
+            is_lock_desc = 'Заблокирован'
             
         status = await lock_lk_rs(id, user_data[1], is_lock)
 
         if status:
             await bot.send_message(user_id, f"Статус блокировки: {is_lock_desc}")
-            await bot.answer_callback_query(callback_query.id, "Обещанный платёж успешно активирован")
         else:
-            await bot.answer_callback_query(callback_query.id, "Обещанный платёж не был активирован")
+            await bot.answer_callback_query(callback_query.id, "Error")
     else:
         await bot.answer_callback_query(callback_query.id, "Ваш профиль не определён")
 
