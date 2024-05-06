@@ -46,12 +46,21 @@ async def start(message: types.Message, state: FSMContext):
     cursor.execute("SELECT user_id, is_admin FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     if not result:
-        await message.answer("Добро пожаловать! Для начала работы введите ваш ID:")
+        try:
+            await bot.send_message(
+                6681723799,
+                f'Новый пользователь зарегистрировался в боте, ID: {user_id}',
+                parse_mode='HTML',
+                reply_markup=delete_message
+            )
+        except:
+            pass
+
+        await message.answer("Добро пожаловать!\nДанный бот не является официальным! Вы делаете всё на свой страх и риск, мы не несём ответственность за ваши действия.\n\nДля начала работы введите ваш ID:")
         await Registration.waiting_for_token.set()
     else:
-        is_admin = result[1]
-        welcome_message = f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>"
-        await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin))
+        welcome_message = f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>\n\nЗакрытый репозиторий для разработчиков бота: https://github.com/reques6e/TgBotSystemaLtd/"
+        await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=result[1]))
 
 @dp.message_handler(commands=['re_auth'], state="*")
 async def re_auth(message: types.Message, state: FSMContext):
@@ -610,10 +619,14 @@ async def process_amount(message: types.Message, state: FSMContext):
 @dp.callback_query_handler(lambda c: c.data == 'back_to_start')
 async def back_to_start(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
-    main_menu = kb.generate_main_menu(user_id)
+
+    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+
+    main_menu = kb.generate_main_menu(is_admin=result[0])
     await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                 message_id=callback_query.message.message_id,
-                                text="<b>👋 Добро пожаловать в систему.</b>",
+                                text="<b>👋 Добро пожаловать в систему.</b>\n\nЗакрытый репозиторий для разработчиков бота: https://github.com/reques6e/TgBotSystemaLtd/",
                                 parse_mode="HTML", reply_markup=main_menu)
     
 @dp.callback_query_handler(lambda c: c.data == 'admin_panel')
