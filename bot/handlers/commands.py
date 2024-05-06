@@ -422,7 +422,7 @@ async def profile(callback_query: types.CallbackQuery):
         profile_text = f"🙋🏻‍♂️ Твой ID: [<code>{user_id}</code>]\n" \
                     f"💰 Баланс: <b>{balance}</b>\n" \
                     f"📜 Лицевой счет: <b>{account_number}</b>\n" \
-                    f"💣 Статус блокировк: <b>{is_lock_desc}</b>\n" \
+                    f"💣 Статус блокировки: <b>{is_lock_desc}</b>\n" \
                     f"📅 Дата последнего платежа: <b>{last_payment_date}</b>\n" \
                     f"💳 Последнее пополнение: <b>{last_pay}</b>\n" \
                     f"🔍 Состояние: <b>{state}</b>\n" \
@@ -459,10 +459,10 @@ async def lock_lk(callback_query: types.CallbackQuery):
         rs = await fetch_profile(cursor, user_id)
         if rs['response']['data']['is_locked']:
             is_lock = 0
-            is_lock_desc = 'Не заблокирован'
+            is_lock_desc = 'Заблокирован'
         else:
             is_lock = 1
-            is_lock_desc = 'Заблокирован'
+            is_lock_desc = 'Не заблокирован'
             
         status = await lock_lk_rs(id, user_data[1], is_lock)
 
