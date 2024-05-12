@@ -285,7 +285,7 @@ async def get_locations() -> Union[Dict[str, Any], bool]:
 async def get_camera(lid: int) -> Union[Dict[str, Any], bool]:
 
     """
-    Получение списка всех локаций
+    Получение списка всех камер
     
     Если статус код 200 или 401, он возвращает json, если нет, даёт bool False (если происходит ошибка)
 
