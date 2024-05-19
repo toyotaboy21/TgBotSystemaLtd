@@ -535,7 +535,7 @@ async def change_password_confim(id: int, password: str, token: str, code: int) 
 async def lock_lk_rs(id: int, token: str, lock: int) -> Union[Dict[str, Any], bool]:
 
     """
-    Подтверждение изменения пароля
+    Блокировка профиля
 
     ```json
     {
