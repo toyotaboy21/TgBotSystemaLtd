@@ -278,6 +278,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
     if camera_response and camera_response.get('response'):
         camera = camera_response['response']
         image_url = camera.get('preview')
+        token = camera.get('token')
         channel = camera.get('cam')['camera_name']
         description = camera.get('cam')['camera_text']
         weather = camera.get('weather', {}).get('fact', {})
@@ -313,7 +314,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
         if len(description) > 430:
             description = description[:430-3] + '...'
 
-        message_text = f"📷 Канал: <b>{channel}</b>\n\n"
+        message_text = f"📷 Камера: <b>{channel}</b>\n\n"
         message_text += f"{description}\n\n"
         message_text += f"🌡️ Температура: <b>{temperature}°C</b>\n"
         message_text += f"☁️ Погодные условия: <b>{condition}</b>\n"
@@ -328,7 +329,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
             keyboard.add(InlineKeyboardButton("⭐ В избранное", callback_data=f"add_to_favorites_{channel_name}")) # Изменено на channel_name
         keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="button_delete_message"))
 
-        await bot.send_photo(callback_query.from_user.id, image_url, caption=message_text, parse_mode="HTML", reply_markup=keyboard)
+        await bot.send_photo(callback_query.from_user.id, f'{image_url}?token={token}', caption=message_text, parse_mode="HTML", reply_markup=keyboard)
     else:
         await bot.answer_callback_query(callback_query.id, "Произошла ошибка при получении камеры")
 
