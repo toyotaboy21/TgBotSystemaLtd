@@ -1,9 +1,10 @@
 import json
 import aiohttp
+import io
 
 from typing import Dict, Any, Union
 from datetime import datetime, timedelta
-
+from config import cdn_domain
 
 def get_first_day_last_month():
     today = datetime.now()
@@ -555,3 +556,16 @@ async def lock_lk_rs(id: int, token: str, lock: int) -> Union[Dict[str, Any], bo
                 return await response.json()
             else:
                 return False
+
+async def upload_cdn(file: io.BytesIO) -> Union[Dict[str, Any], bool]:
+    """
+    Загрузка файлов на CDN
+    """
+    url = f'http://{cdn_domain}/upload'
+    data = aiohttp.FormData()
+    data.add_field('file', file, filename='file.json', content_type='application/octet-stream')
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data=data) as response:
+            if response.status:
+                return await response.text()
