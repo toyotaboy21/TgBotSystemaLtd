@@ -48,6 +48,20 @@ echo "Установка завершена."
 
 ```
 
+### Поднятие CDN сервера
+
+С релиза 1.0.2, используется CDN для загрузки файлов на сервер.
+
+Репозиторий: https://github.com/reques6e/TotalFile-CDNServerLite
+
+### Настройка CDN
+
+В файле конфигурации `data/config.json`, требуется разрешить загрузку определённых форматов файлов.
+
+```json
+        "allowed_files": ["txt", "pdf", "png", "jpg", "jpeg", "gif", "html", "zip", "py", "json"],
+```
+
 ### Работа с сервисом
 > Полный путь к сервису: `/etc/systemd/system/tg_bot_systema.service`
 
@@ -68,6 +82,7 @@ systemctl start tg_bot_systema.service
 > Файл конфигурации бота: `config.py`
 ```python
 bot_token = '' # Сюда требуется вставить токен бота который можно получить у https://t.me/BotFather, подробная инструкция: https://developers.sber.ru/help/salutebot/telegram-integration
+cdn_domain = '' # Сюда добавляем ссылку на cdn, если хотите запустить бота без CDN, то оставьте это поле пустым.
 ```
 
 ### Структура базы данных
