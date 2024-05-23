@@ -1,7 +1,7 @@
 import json
 import aiohttp
 import io
-
+from aiohttp.client_exceptions import ClientConnectorError
 from typing import Dict, Any, Union
 from datetime import datetime, timedelta
 from config import cdn_domain
@@ -565,7 +565,10 @@ async def upload_cdn(file: io.BytesIO) -> Union[Dict[str, Any], bool]:
     data = aiohttp.FormData()
     data.add_field('file', file, filename='file.json', content_type='application/octet-stream')
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=data) as response:
-            if response.status:
-                return await response.text()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=data) as response:
+                if response.status:
+                    return await response.text()
+    except aiohttp.client_exceptions.ClientConnectorError:
+        return None
