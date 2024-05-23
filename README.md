@@ -62,6 +62,11 @@ echo "Установка завершена."
  "allowed_files": ["txt", "pdf", "png", "jpg", "jpeg", "gif", "html", "zip", "py", "json"],
 ```
 
+По желанию (рекомендуем), ограничить доступ к загрузке файлов по IP
+```json
+        "allowed_ips": ["124.33.211.235"]
+```
+
 ### Работа с сервисом
 > Полный путь к сервису: `/etc/systemd/system/tg_bot_systema.service`
 
