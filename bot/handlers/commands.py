@@ -12,7 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 
 from bot.bot import dp, bot
-from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info, change_password, change_password_confim, lock_lk_rs
+from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info, change_password, change_password_confim, lock_lk_rs, upload_cdn
 from bot.keyboards.keyboard_admin import generate_admin_keyboard
 from bot.keyboards import keyboard as kb
 from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy, ChangePasswordState
@@ -600,10 +600,19 @@ async def download_payment_list(callback_query: types.CallbackQuery):
             payment_list = status["response"]["data"]
             json_data = json.dumps(payment_list, ensure_ascii=False, indent=2)
 
-            document = io.BytesIO(json_data.encode())
-            document.name = 'pay_list.json' 
+            upload_document = io.BytesIO(json_data.encode())
+            upload_document.name = 'pay_list.json' 
 
-            await bot.send_document(callback_query.from_user.id, document, caption='Ваша история платежей')
+            bot_document = io.BytesIO(json_data.encode())
+            bot_document.name = 'pay_list.json'
+            
+            link = await upload_cdn(upload_document)
+            if link:
+                await bot.send_document(callback_query.from_user.id, bot_document, caption=f'Ваша история платежей\nВеб-версия: {link}')
+            else:
+                # answer_callback_query можно задокументировать, если CDN нету.
+                await bot.answer_callback_query(callback_query.id, "Ошибка при загрузке на CDN")
+                await bot.send_document(callback_query.from_user.id, bot_document, caption=f'Ваша история платежей')
         else:
             await bot.answer_callback_query(callback_query.id, "Ошибка при получении истории платежей")
     else:
