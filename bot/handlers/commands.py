@@ -396,6 +396,15 @@ async def profile(callback_query: types.CallbackQuery):
         else:
             is_lock_desc = 'Не заблокирован'
         
+        buy_balance = InlineKeyboardButton("💰 Пополнить баланс", callback_data='subscribe_buy')      
+        payment_history = InlineKeyboardButton("📅 История платежей", callback_data='payment_history')           
+        change_password = InlineKeyboardButton("🔑 Сменить пароль", callback_data='change_password') 
+        promised_payment = InlineKeyboardButton("📅 Обещанный платёж", callback_data='promised_payment')
+        lock_lk = InlineKeyboardButton("💣 Блокировка ЛК", callback_data='lock_lk')
+        back_button = InlineKeyboardButton("🔙 Назад", callback_data='back_to_start')
+
+        keyboard = InlineKeyboardMarkup().row(buy_balance, payment_history).row(change_password, lock_lk).add(promised_payment, back_button)
+
         profile_text = Texts.profile_info_text.format(user_id=user_id, balance=balance, account_number=account_number, is_lock_desc=is_lock_desc, last_payment_date=last_payment_date, last_pay=last_pay, state=state, tariff=tariff)
     else:
         error_description = profile_data['response']['message']
@@ -404,14 +413,7 @@ async def profile(callback_query: types.CallbackQuery):
             
         profile_text = Texts.profile_info_false_text.format(error_description=error_description)
 
-    buy_balance = InlineKeyboardButton("💰 Пополнить баланс", callback_data='subscribe_buy')      
-    payment_history = InlineKeyboardButton("📅 История платежей", callback_data='payment_history')           
-    change_password = InlineKeyboardButton("🔑 Сменить пароль", callback_data='change_password') 
-    promised_payment = InlineKeyboardButton("📅 Обещанный платёж", callback_data='promised_payment')
-    lock_lk = InlineKeyboardButton("💣 Блокировка ЛК", callback_data='lock_lk')
-    back_button = InlineKeyboardButton("🔙 Назад", callback_data='back_to_start')
-
-    keyboard = InlineKeyboardMarkup().row(buy_balance, payment_history).row(change_password, lock_lk).add(promised_payment, back_button)
+        keyboard = None
 
     await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                 message_id=callback_query.message.message_id,
