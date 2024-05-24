@@ -295,12 +295,6 @@ async def camera_selected(callback_query: types.CallbackQuery):
 
         if len(description) > 430:
             description = description[:430-3] + '...'
-
-        message_text = f"📷 Камера: <b>{channel}</b>\n\n"
-        message_text += f"{description}\n\n"
-        message_text += f"🌡️ Температура: <b>{temperature}°C</b>\n"
-        message_text += f"☁️ Погодные условия: <b>{condition}</b>\n"
-        message_text += f"💨 Скорость ветра: <b>{wind_speed} м/c</b>\n\n"
         
         keyboard = InlineKeyboardMarkup()
         if await is_favorite(callback_query.from_user.id, camera.get("channel")):
@@ -311,7 +305,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
             keyboard.add(InlineKeyboardButton("⭐ В избранное", callback_data=f"add_to_favorites_{channel_name}")) # Изменено на channel_name
         keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="button_delete_message"))
 
-        await bot.send_photo(callback_query.from_user.id, f'{image_url}?token={token}', caption=message_text, parse_mode="HTML", reply_markup=keyboard)
+        await bot.send_photo(callback_query.from_user.id, f'{image_url}?token={token}', caption=Texts.camera_info_text.format(channel=channel, description=description, temperature=temperature, condition=condition, wind_speed=wind_speed), parse_mode="HTML", reply_markup=keyboard)
     else:
         await bot.answer_callback_query(callback_query.id, text=Texts.get_camera_error_text)
 
@@ -726,7 +720,7 @@ async def process_personal_message_text(message: types.Message, state: FSMContex
             reply_markup=generate_admin_keyboard()
         )
     except Exception as e:
-        await message.reply("Произошла ошибка при отправке сообщения. Попробуйте еще раз.")
+        await message.reply(text=Texts.send_personal_false_text)
     finally:
         await state.finish()
 
