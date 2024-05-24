@@ -633,7 +633,7 @@ async def process_amount(message: types.Message, state: FSMContext):
             
             await message.reply(text=Texts.process_amount_text.format(pay_link=pay_link, amount=amount), parse_mode="HTML")
         else:
-            await message.reply("Пользователь не найден в базе данных.")
+            await message.reply(text=Texts.re_auth_user_not_in_database_text)
 
     await state.finish()
     
