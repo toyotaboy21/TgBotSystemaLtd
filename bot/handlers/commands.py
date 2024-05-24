@@ -647,7 +647,7 @@ async def back_to_start(callback_query: types.CallbackQuery):
     main_menu = kb.generate_main_menu(is_admin=result[0])
     await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                 message_id=callback_query.message.message_id,
-                                text=Texts.welcome_registered_text.format(user=user_id),
+                                text=Texts.welcome_registered_text.format(user=callback_query.from_user.first_name),
                                 parse_mode="HTML", reply_markup=main_menu)
     
 @dp.callback_query_handler(lambda c: c.data == 'admin_panel')
