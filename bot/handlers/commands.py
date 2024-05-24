@@ -15,6 +15,7 @@ from bot.bot import dp, bot
 from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info, change_password, change_password_confim, lock_lk_rs, upload_cdn
 from bot.keyboards.keyboard_admin import generate_admin_keyboard
 from bot.keyboards import keyboard as kb
+from bot.dictionaries.dictionary import Texts
 from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy, ChangePasswordState
 
 
@@ -49,18 +50,17 @@ async def start(message: types.Message, state: FSMContext):
         try:
             await bot.send_message(
                 6681723799,
-                f'Новый пользователь зарегистрировался в боте, ID: {user_id}',
+                text=Texts.notification_registration_text.format(user_id),
                 parse_mode='HTML',
                 reply_markup=delete_message
             )
         except:
             pass
 
-        await message.answer("Добро пожаловать!\nДанный бот не является официальным! Вы делаете всё на свой страх и риск, мы не несём ответственность за ваши действия.\n\nДля начала работы введите ваш ID:")
+        await message.answer(Texts.welcome_registration_text.format(user=message.from_user.first_name))
         await Registration.waiting_for_token.set()
     else:
-        welcome_message = f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>\n\nЗакрытый репозиторий для разработчиков бота: https://github.com/reques6e/TgBotSystemaLtd/"
-        await message.reply(welcome_message, parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=result[1]))
+        await message.reply(Texts.welcome_registered_text.format(user=message.from_user.first_name), parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=result[1]))
 
 @dp.message_handler(commands=['del_data'])
 async def del_data(message: types.Message):
@@ -68,8 +68,11 @@ async def del_data(message: types.Message):
 
     cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
     connection.commit()
+
+    cursor.execute("DELETE FROM favorites WHERE user_id = ?", (user_id,))
+    connection.commit()
     
-    await message.reply(f"Данные для пользователя с user_id {user_id} успешно удалены.")
+    await message.reply(Texts.delete_user_data_text.format(user_id=user_id))
 
 @dp.message_handler(commands=['re_auth'], state="*")
 async def re_auth(message: types.Message, state: FSMContext):
@@ -87,7 +90,7 @@ async def re_auth(message: types.Message, state: FSMContext):
             cursor.execute("UPDATE users SET token = ? WHERE user_id = ?", (re_auth_response['response']['token'], user_id))
             connection.commit()
 
-            await message.answer("Профиль успешно переавторизован.")
+            await message.answer(Texts.re_auth_true_text)
         else:
             await message.answer("Не удалось выполнить переавторизацию.")
     else:
@@ -99,7 +102,7 @@ async def re_auth(message: types.Message, state: FSMContext):
 async def process_token_input(message: types.Message, state: FSMContext):
     id = message.text
     await state.update_data(id=id)
-    await message.answer("Теперь введите ваш пароль:")
+    await message.answer(Texts.send_me_your_password_text)
     await Registration.next()
 
 @dp.message_handler(state=Registration.waiting_for_id)
@@ -117,18 +120,18 @@ async def process_id_input(message: types.Message, state: FSMContext):
         cursor.execute('INSERT INTO favorites (user_id, cams) VALUES (?, ?)', (user_id, '[]'))
         connection.commit()
 
-        await message.reply(f"👋 {message.from_user.first_name}, <b>добро пожаловать в Систему</b>",
+        await message.reply(Texts.welcome_registered_text.format(user=message.from_user.first_name),
                             parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=False))
         await state.finish()
     else:
-        await message.reply(f"Неверный логин или пароль")
+        await message.reply(Texts.password_or_login_error_text)
     
 @dp.callback_query_handler(lambda c: c.data.startswith('delete_message_'))
 async def delete_message(callback_query: types.CallbackQuery):
     chat_id = callback_query.message.chat.id
 
     await bot.delete_message(chat_id, message_id=callback_query.message.message_id)
-    await bot.answer_callback_query(callback_query.id, text="Сообщение удалено", show_alert=True)
+    await bot.answer_callback_query(callback_query.id, text=Texts.message_delete_text, show_alert=True)
     
 @dp.callback_query_handler(lambda c: c.data == 'info')
 async def process_callback_button(callback_query: types.CallbackQuery):
@@ -140,7 +143,7 @@ async def process_callback_button(callback_query: types.CallbackQuery):
     await bot.edit_message_text(
         chat_id=callback_query.message.chat.id,
         message_id=callback_query.message.message_id,
-        text="<b>❗️ Выберите действие:</b>",
+        text=Texts.take_action,
         parse_mode='HTML',
         reply_markup=keyboard
     )
@@ -148,7 +151,7 @@ async def process_callback_button(callback_query: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data == 'delete_menu')
 async def delete_menu(callback_query: types.CallbackQuery):
     await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
-    await bot.answer_callback_query(callback_query.id, text="Меню скрыто", show_alert=True)
+    await bot.answer_callback_query(callback_query.id, text=Texts.menu_delete_text, show_alert=True)
 
 @dp.callback_query_handler(lambda c: c.data == 'cancel', state=SomeState)
 async def cancel_action(callback_query: types.CallbackQuery, state: FSMContext):
@@ -164,7 +167,7 @@ async def cancel_action(callback_query: types.CallbackQuery, state: FSMContext):
         await bot.edit_message_reply_markup(callback_query.from_user.id, message_id=sent_message.message_id, reply_markup=keyboard)
 
     await state.finish()
-    await callback_query.answer("✅ Успешно отменено", show_alert=True)
+    await callback_query.answer(Texts.menu_delete_notification_text, show_alert=True)
 
 @dp.callback_query_handler(lambda c: c.data == 'cams')
 async def get_cams_list(callback_query: types.CallbackQuery):    
@@ -183,12 +186,12 @@ async def get_cams_list(callback_query: types.CallbackQuery):
         await bot.edit_message_text(
             chat_id=callback_query.from_user.id,
             message_id=callback_query.message.message_id,
-            text='Выберите локацию:',
+            text=Texts.select_location_text,
             parse_mode="HTML",
             reply_markup=keyboard
         )
     else:
-        await bot.answer_callback_query(callback_query.id, "Ошибка при получении локаций")
+        await bot.answer_callback_query(callback_query.id, text=Texts.select_location_false_text)
 
 @dp.callback_query_handler(lambda c: c.data.startswith('location_'))
 async def location_selected(callback_query: types.CallbackQuery):
@@ -222,15 +225,13 @@ async def location_selected(callback_query: types.CallbackQuery):
                 keyboard.row(InlineKeyboardButton("🔙 Назад", callback_data='back'),
                              InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'),
                              InlineKeyboardButton("Вперёд➡️", callback_data='next'))
-            
-            message_text = 'Выберите камеру:'
-            
+                        
             if callback_query.message:
                 try:
                     await bot.edit_message_text(
                         chat_id=callback_query.message.chat.id,
                         message_id=callback_query.message.message_id,
-                        text=message_text,
+                        text=Texts.select_camera_text,
                         reply_markup=keyboard
                     )
                 except aiogram.utils.exceptions.MessageNotModified:
@@ -243,7 +244,7 @@ async def location_selected(callback_query: types.CallbackQuery):
             else:
                 await bot.send_message(
                     callback_query.from_user.id,
-                    text=message_text,
+                    text=Texts.select_camera_text,
                     reply_markup=keyboard
                 )
         
@@ -258,7 +259,7 @@ async def location_selected(callback_query: types.CallbackQuery):
                 current_page = min(current_page + 1, len(camera_groups) - 1)
             await send_camera_message(current_page)
     else:
-        await bot.answer_callback_query(callback_query.id, "Ошибка при получении камер по локации")
+        await bot.answer_callback_query(callback_query.id, Texts.all_cameras_displayed_false_text)
 
 @dp.callback_query_handler(lambda c: c.data.startswith('camera_'))
 async def camera_selected(callback_query: types.CallbackQuery):
@@ -289,27 +290,8 @@ async def camera_selected(callback_query: types.CallbackQuery):
         description = re.sub(r'<\s*p\s*>', '', description)
         description = re.sub(r'</\s*p\s*>', '', description)
 
-        weather_conditions = {
-            'clear': 'Ясно',
-            'partly-cloudy': 'Малооблачно',
-            'cloudy': 'Облачно с прояснениями',
-            'overcast': 'Пасмурно',
-            'light-rain': 'Небольшой дождь',
-            'rain': 'Дождь',
-            'heavy-rain': 'Сильный дождь',
-            'showers': 'Ливень',
-            'wet-snow': 'Дождь со снегом',
-            'light-snow': 'Небольшой снег',
-            'snow': 'Снег',
-            'snow-showers': 'Снегопад',
-            'hail': 'Град',
-            'thunderstorm': 'Гроза',
-            'thunderstorm-with-rain': 'Дождь с грозой',
-            'thunderstorm-with-hail': 'Гроза с градом'
-        }
-
-        if condition in weather_conditions:
-            condition = weather_conditions[condition]
+        if condition in Texts.weather_conditions_text:
+            condition = Texts.weather_conditions_text[condition]
 
         if len(description) > 430:
             description = description[:430-3] + '...'
@@ -331,7 +313,7 @@ async def camera_selected(callback_query: types.CallbackQuery):
 
         await bot.send_photo(callback_query.from_user.id, f'{image_url}?token={token}', caption=message_text, parse_mode="HTML", reply_markup=keyboard)
     else:
-        await bot.answer_callback_query(callback_query.id, "Произошла ошибка при получении камеры")
+        await bot.answer_callback_query(callback_query.id, text=Texts.get_camera_error_text)
 
 @dp.callback_query_handler(lambda c: c.data.startswith('remove_from_favorites_'))
 async def remove_from_favorites(callback_query: types.CallbackQuery):
@@ -346,10 +328,10 @@ async def remove_from_favorites(callback_query: types.CallbackQuery):
             favorites.remove(channel_name)
             cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
             connection.commit()
-            await bot.answer_callback_query(callback_query.id, "Камера удалена из избранного")
+            await bot.answer_callback_query(callback_query.id, Texts.camera_remove_from_favorites_text)
             return
 
-    await bot.answer_callback_query(callback_query.id, "Камера не найдена в избранном")
+    await bot.answer_callback_query(callback_query.id, text=Texts.camera_remove_from_favorites_false_text)
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith('add_to_favorites_'))
@@ -364,8 +346,8 @@ async def add_to_favorites(callback_query: types.CallbackQuery):
     else:
         favorites = []
 
-    if len(favorites) >= 9: # Ограничения, больше 9 камер нельзя.
-        await bot.answer_callback_query(callback_query.id, "Вы достигли максимального количества избранных камер (9)")
+    if len(favorites) >= 9: # Ограничение, больше 9 камер нельзя.
+        await bot.answer_callback_query(callback_query.id, Texts.add_to_favorites_error_text)
         return
 
     favorites.append(channel_name)
@@ -373,7 +355,7 @@ async def add_to_favorites(callback_query: types.CallbackQuery):
     cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
     connection.commit()
 
-    await bot.answer_callback_query(callback_query.id, "Камера добавлена в избранное")
+    await bot.answer_callback_query(callback_query.id, text=Texts.add_to_favorites_text)
 
 
 @dp.callback_query_handler(lambda c: c.data == 'get_favorites')
@@ -386,15 +368,15 @@ async def get_favorites(callback_query: types.CallbackQuery):
     if row:
         favorites = json.loads(row[0])
         if favorites:
-            message_text = "Ваши избранные камеры:"
+            message_text = Texts.your_favorite_cameras_text
             keyboard = InlineKeyboardMarkup()
             for favorite in favorites:
                 keyboard.add(InlineKeyboardButton(favorite, callback_data=f'camera_{favorite}'))
         else:
-            message_text = "Ваши избранные камеры пусты."
+            message_text = Texts.your_favorite_cameras_false_text
             keyboard = None
     else:
-        message_text = "У вас пока нет избранных камер."
+        message_text = Texts.favorite_cameras_none_text
         keyboard = None
 
     await bot.send_message(callback_query.from_user.id, message_text, reply_markup=keyboard)
@@ -419,22 +401,14 @@ async def profile(callback_query: types.CallbackQuery):
             is_lock_desc = 'Заблокирован'
         else:
             is_lock_desc = 'Не заблокирован'
-
-        profile_text = f"🙋🏻‍♂️ Твой ID: [<code>{user_id}</code>]\n" \
-                    f"💰 Баланс: <b>{balance}</b>\n" \
-                    f"📜 Лицевой счет: <b>{account_number}</b>\n" \
-                    f"💣 Статус блокировки: <b>{is_lock_desc}</b>\n" \
-                    f"📅 Дата последнего платежа: <b>{last_payment_date}</b>\n" \
-                    f"💳 Последнее пополнение: <b>{last_pay}</b>\n" \
-                    f"🔍 Состояние: <b>{state}</b>\n" \
-                    f"📶 Тариф: <b>{tariff}</b>\n"
+        
+        profile_text = Texts.profile_info_text.format(user_id=user_id, balance=balance, account_number=account_number, is_lock_desc=is_lock_desc, last_payment_date=last_payment_date, last_pay=last_pay, state=state, tariff=tariff)
     else:
         error_description = profile_data['response']['message']
         if error_description == 'Выполнен вход на другом устройстве':
             error_description += '\n\nВыполните команду для переавторизации:\n/re_auth'
             
-        profile_text = "Произошла ошибка при получении данных о профиле:" \
-                       f"<b>{error_description}</b>\n"
+        profile_text = Texts.profile_info_false_text.format(error_description=error_description)
 
     buy_balance = InlineKeyboardButton("💰 Пополнить баланс", callback_data='subscribe_buy')      
     payment_history = InlineKeyboardButton("📅 История платежей", callback_data='payment_history')           
@@ -466,15 +440,15 @@ async def lock_lk(callback_query: types.CallbackQuery):
         status = await lock_lk_rs(id, user_data[1], is_lock)
 
         if status:
-            await bot.send_message(user_id, f"Статус блокировки изменён.")
+            await bot.send_message(user_id, text=Texts.status_blocking_edited_text)
         else:
             await bot.answer_callback_query(callback_query.id, "Error")
     else:
-        await bot.answer_callback_query(callback_query.id, "Ваш профиль не определён")
+        await bot.answer_callback_query(callback_query.id, text=Texts.profile_not_found_text)
 
 @dp.callback_query_handler(lambda c: c.data == 'change_password')
 async def change_password_callback(callback_query: types.CallbackQuery):
-    await bot.send_message(callback_query.from_user.id, "Введите новый пароль:")
+    await bot.send_message(callback_query.from_user.id, text=Texts.send_me_new_password_text)
     await ChangePasswordState.first()
 
 @dp.message_handler(state=ChangePasswordState.waiting_for_new_password)
@@ -492,10 +466,10 @@ async def process_new_password(message: types.Message, state: FSMContext):
 
     rs = await change_password(user_data[0], user_data[1])
     if rs['response']['status']:
-        await message.answer(f"Введите SMS-код, который был отправлен на номер телефона +{rs['response']['phone']}:")
+        await message.answer(text=Texts.get_sms_code_text)
         await ChangePasswordState.next()
     else:
-        await message.answer(f"Не удалось отправить SMS-код.\n{rs['response']['message']}")
+        await message.answer(text=Texts.get_sms_code_false_text)
         await state.finish()
 
 
@@ -515,9 +489,9 @@ async def process_sms_code(message: types.Message, state: FSMContext):
         connection.commit()
         
         if result:
-            await message.answer("Пароль успешно изменён.")
+            await message.answer(text=Texts.password_edited_text)
         else:
-            await message.answer("Ошибка при изменении пароля. Пожалуйста, попробуйте ещё раз.")
+            await message.answer(text=Texts.password_edited_false_text)
 
     await state.finish()
 
@@ -534,9 +508,9 @@ async def payment_history(callback_query: types.CallbackQuery):
             payment_list = status["response"]["data"]
             await show_payment_list(callback_query.message, payment_list, 1)
         else:
-            await bot.answer_callback_query(callback_query.id, "Ошибка при получении истории платежей")
+            await bot.answer_callback_query(callback_query.id, text=Texts.payment_history_false_text)
     else:
-        await bot.answer_callback_query(callback_query.id, "Ваш профиль не определен")
+        await bot.answer_callback_query(callback_query.id, text=Texts.re_auth_user_not_in_database_text)
 
 async def show_payment_list(message, payment_list, page):
     if not payment_list:
@@ -585,9 +559,9 @@ async def handle_payment_pagination(callback_query: types.CallbackQuery):
             payment_list = status["response"]["data"]
             await show_payment_list(callback_query.message, payment_list, page)
         else:
-            await bot.answer_callback_query(callback_query.id, "Ошибка при получении истории платежей")
+            await bot.answer_callback_query(callback_query.id, text=Texts.payment_history_false_text)
     else:
-        await bot.answer_callback_query(callback_query.id, "Ваш профиль не определён")
+        await bot.answer_callback_query(callback_query.id, text=Texts.profile_not_found_text)
 
 @dp.callback_query_handler(lambda c: c.data == 'download_payment_list')
 async def download_payment_list(callback_query: types.CallbackQuery):
@@ -609,15 +583,15 @@ async def download_payment_list(callback_query: types.CallbackQuery):
             
             link = await upload_cdn(upload_document)
             if link:
-                await bot.send_document(callback_query.from_user.id, bot_document, caption=f'Ваша история платежей\nВеб-версия: {link}')
+                await bot.send_document(callback_query.from_user.id, bot_document, caption=Texts.your_payment_history_text.format(link=link))
             else:
-                # answer_callback_query можно задокументировать, если CDN нету.
-                await bot.answer_callback_query(callback_query.id, "Ошибка при загрузке на CDN")
-                await bot.send_document(callback_query.from_user.id, bot_document, caption=f'Ваша история платежей')
+                # answer_callback_query можно задокументировать, если CDN нету, для оптимизации
+                await bot.answer_callback_query(callback_query.id, text=Texts.upload_file_to_cdn_error_text)
+                await bot.send_document(callback_query.from_user.id, bot_document, caption=Texts.your_payment_history_no_cdn_text)
         else:
-            await bot.answer_callback_query(callback_query.id, "Ошибка при получении истории платежей")
+            await bot.answer_callback_query(callback_query.id, text=Texts.payment_history_false_text)
     else:
-        await bot.answer_callback_query(callback_query.id, "Ваш профиль не определен")
+        await bot.answer_callback_query(callback_query.id, text=Texts.re_auth_user_not_in_database_text)
 
 @dp.callback_query_handler(lambda c: c.data == 'promised_payment')
 async def activate_promised_payment(callback_query: types.CallbackQuery):
@@ -629,18 +603,18 @@ async def activate_promised_payment(callback_query: types.CallbackQuery):
         status = await promised_payment(user_data[0], user_data[1])
 
         if status:
-            await bot.send_message(user_id, "Обещанный платёж успешно активирован")
-            await bot.answer_callback_query(callback_query.id, "Обещанный платёж успешно активирован")
+            await bot.send_message(user_id, text=Texts.activate_promised_payment_text)
+            await bot.answer_callback_query(callback_query.id, text=Texts.activate_promised_payment_text)
         else:
-            await bot.answer_callback_query(callback_query.id, "Обещанный платёж не был активирован")
+            await bot.answer_callback_query(callback_query.id, text=Texts.activate_promised_payment_false_text)
     else:
-        await bot.answer_callback_query(callback_query.id, "Ваш профиль не определён")
+        await bot.answer_callback_query(callback_query.id, text=Texts.re_auth_user_not_in_database_text)
 
 @dp.callback_query_handler(lambda c: c.data == 'subscribe_buy')
 async def subscribe_buy(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    await bot.send_message(user_id, "Введите сумму для пополнения баланса:")
+    await bot.send_message(user_id, text=Texts.subscribe_buy_text)
     await SubscribeBuy.waiting_for_amount.set()
 
 @dp.message_handler(state=SubscribeBuy.waiting_for_amount)
@@ -649,21 +623,15 @@ async def process_amount(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
 
     if amount >= 25000:
-        await message.reply("Введите сумму меньше 25000")
+        await message.reply(text=Texts.process_amount_limit_text)
     else:
         cursor.execute("SELECT id FROM users WHERE user_id = ?", (user_id,))
         user_data = cursor.fetchone()
         if user_data:
             id = user_data[0]
             pay_link = await generate_pay_link(id, amount)
-
-            text = f"Ваша ссылка для пополнения лицевого счёта:" \
-                f"\n\n{pay_link}\n\n" \
-                f"Ссылка работает: <b>10 минут</b>\n" \
-                f"Сумма пополнения: <b>{amount}</b>" \
-                f"\n\n⚠️Ваш баланс автоматически пополнится после оплаты."
             
-            await message.reply(text, parse_mode="HTML")
+            await message.reply(text=Texts.process_amount_text.format(pay_link=pay_link, amount=amount), parse_mode="HTML")
         else:
             await message.reply("Пользователь не найден в базе данных.")
 
@@ -679,7 +647,7 @@ async def back_to_start(callback_query: types.CallbackQuery):
     main_menu = kb.generate_main_menu(is_admin=result[0])
     await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                 message_id=callback_query.message.message_id,
-                                text="<b>👋 Добро пожаловать в систему.</b>\n\nЗакрытый репозиторий для разработчиков бота: https://github.com/reques6e/TgBotSystemaLtd/",
+                                text=Texts.welcome_registered_text.format(user=user_id),
                                 parse_mode="HTML", reply_markup=main_menu)
     
 @dp.callback_query_handler(lambda c: c.data == 'admin_panel')
@@ -692,7 +660,7 @@ async def admin_panel(callback_query: types.CallbackQuery):
     await bot.edit_message_text(
         chat_id=callback_query.message.chat.id,
         message_id=callback_query.message.message_id,
-        text=f"🌟<b>Приветствую</b> <a href='tg://user?id={user_id}'>// {user.username}</a><b>, в админ-панели!</b>",
+        text=Texts.welcome_to_admin_panel_text.format(user_id=user_id, user_name=user.username),
         parse_mode='HTML',
         reply_markup=admin_markup
     )
@@ -706,11 +674,11 @@ async def grant_access_callback(callback_query: types.CallbackQuery):
 
     if result and result[0]: 
         await bot.send_message(user_id,
-                               "<b>Введите ID пользователя, которому вы хотите предоставить доступ админа</b>",
+                               text=Texts.grant_access_text,
                                parse_mode='HTML')
         await SomeState.waiting_for_user_id.set()
     else:
-        await bot.send_message(user_id, "У вас нет прав на выдачу администраторских прав.")
+        await bot.send_message(user_id, text=Texts.grant_access_false_text)
 
 @dp.callback_query_handler(lambda c: c.data == 'send_personal_message')
 async def send_personal_message(callback_query: types.CallbackQuery):
@@ -719,7 +687,7 @@ async def send_personal_message(callback_query: types.CallbackQuery):
     keyboard.row(cancel_button)
 
     await bot.send_message(callback_query.from_user.id,
-                           "<b>Введите ID пользователя, которому хотите отправить личное сообщение:</b>",
+                           text=Texts.send_personal_text,
                            parse_mode='HTML',
                            reply_markup=keyboard)
     await SomeState.waiting_for_personal_message_id.set()
@@ -730,12 +698,11 @@ async def process_personal_message_id(message: types.Message, state: FSMContext)
         user_id = int(message.text)
 
         await state.update_data(user_id=user_id)
-        await bot.send_message(message.chat.id,
-                                "Введите сообщение, которое хотите отправить этому пользователю:")
+        await bot.send_message(message.chat.id, text=Texts.process_personal_text)
         await SomeState.waiting_for_personal_message_text.set()
 
     except ValueError:
-        await message.reply("Ошибка. Введите корректный ID пользователя.")
+        await message.reply(text=Texts.user_id_not_found)
 
 @dp.message_handler(state=SomeState.waiting_for_personal_message_text)
 async def process_personal_message_text(message: types.Message, state: FSMContext):
@@ -754,7 +721,7 @@ async def process_personal_message_text(message: types.Message, state: FSMContex
         )
         await bot.send_message(
             message.chat.id,
-            f"Личное сообщение было успешно отправлено пользователю с ID <code>{user_id}</code>.",
+            text=Texts.send_personal_true_text.format(user_id=user_id),
             parse_mode='HTML',
             reply_markup=generate_admin_keyboard()
         )
@@ -766,7 +733,7 @@ async def process_personal_message_text(message: types.Message, state: FSMContex
 @dp.callback_query_handler(lambda c: c.data == 'revoke_access')
 async def revoke_access_from_user(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,
-                           "<b>Введите ID пользователя, у которого нужно отозвать доступ:</b>",
+                           text=Texts.revoke_access_text,
                            parse_mode='HTML')
     await SomeState.waiting_to_revoke.set()
 
@@ -780,23 +747,23 @@ async def process_user_id(message: types.Message, state: FSMContext):
 
         if result:
             if user_id == message.from_user.id:
-                await bot.send_message(user_id, "Вы не можете выдать админа самому себе")
+                await bot.send_message(user_id, text=Texts.grant_access_me_text)
             elif result[0]:
-                await bot.send_message(user_id, "Пользователь уже является администратором")
+                await bot.send_message(user_id, text=Texts.grant_access_is_admin_text)
             else:
                 cursor.execute("UPDATE users SET is_admin = 1 WHERE user_id = ?", (user_id,))
                 connection.commit()
                 
                 await bot.send_message(
                     message.chat.id,
-                    f"Пользователь с ID <code>{user_id}</code> получил доступ к админ панели.",
+                    text=Texts.grant_access_true_text.format(user_id=user_id),
                     parse_mode='HTML',
                     reply_markup=generate_admin_keyboard()
                 )
         else:
-            await message.reply("Пользователь с таким ID не найден в базе данных.")
+            await message.reply(text=Texts.re_auth_user_not_in_database_text)
     except ValueError:
-        await message.reply("Ошибка. Введите корректный ID пользователя.")
+        await message.reply(text=Texts.user_id_not_found)
     finally:
         await state.finish()
         
@@ -810,31 +777,27 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
 
         if result:
             if not result[0]:
-                await bot.send_message(user_id, "Пользователь не является администратором")
+                await bot.send_message(user_id, text=Texts.revoke_access_false_text)
             else:
                 cursor.execute("UPDATE users SET is_admin = 0 WHERE user_id = ?", (user_id,))
                 connection.commit()
 
                 await bot.send_message(
                     message.chat.id,
-                    f"У пользователя с ID <code>{user_id}</code> отозвали доступ к админ панели.",
+                    text=Texts.revoke_access_true_text.format(user_id=user_id),
                     parse_mode='HTML',
                     reply_markup=generate_admin_keyboard()
                 )
         else:
-            await message.reply("Пользователь с таким ID не найден в базе данных.")
+            await message.reply(text=Texts.re_auth_user_not_in_database_text)
     except ValueError:
-        await message.reply("Ошибка. Введите корректный ID пользователя.")
+        await message.reply(text=Texts.user_id_not_found)
     finally:
         await state.finish()
         
 @dp.message_handler()
 async def handle_messages(message: types.Message):
-    try:
-        await message.delete()
-        await message.answer("К сожалению, я не смог распознать Вашу команду.")
-    except Exception as e:
-        await message.answer("К сожалению, я не смог распознать Вашу команду.")
+    await message.answer(text=Texts.command_not_found_text)
         
 @dp.callback_query_handler(lambda c: c.data == 'delete_info_message')
 async def delete_info_message(callback_query: types.CallbackQuery):
@@ -854,7 +817,7 @@ async def button_delete_message(callback_query: types.CallbackQuery):
 async def mailing_text(callback_query: types.CallbackQuery, state: FSMContext):
     msg = await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                       message_id=callback_query.message.message_id,
-                                      text="<i>Введите текст для рассылки или отправьте изображение</i>",
+                                      text=Texts.mailing_text,
                                       parse_mode="HTML")
     await state.set_state(MailingState.waiting_for_content)
     await state.update_data(message_id=msg.message_id)
@@ -870,7 +833,7 @@ async def process_content_input(message: types.Message, state: FSMContext):
         cursor.execute("SELECT user_id FROM users")
         users = cursor.fetchall()
 
-        await message.answer("Начинаю рассылку...")
+        await message.answer(text=Texts.process_content_input_text)
 
         for user in users:
             try:
@@ -878,8 +841,8 @@ async def process_content_input(message: types.Message, state: FSMContext):
             except ChatNotFound:
                 pass
 
-        await message.answer('Рассылка закончена.')
+        await message.answer(text=Texts.process_content_input_true_text)
     else:
-        await message.answer('У вас нет прав.')
+        await message.answer(text=Texts.process_content_input_false_text)
 
     await state.finish()
