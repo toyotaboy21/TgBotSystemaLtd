@@ -1,4 +1,5 @@
 import aiogram
+import pandas as pd
 import io
 import re
 import json
@@ -532,7 +533,7 @@ async def show_payment_list(message, payment_list, page):
     if end_index < len(payment_list):
         keyboard.insert(InlineKeyboardButton("➡️ Вперёд", callback_data=f"payment_page_{page + 1}"))
     keyboard.row()  
-    keyboard.insert(InlineKeyboardButton("Скачать в формате JSON", callback_data=f"download_payment_list"))
+    keyboard.insert(InlineKeyboardButton("Скачать в формате XLSX", callback_data=f"download_payment_list"))
     keyboard.add(InlineKeyboardButton("🔙 Назад", callback_data='back_to_start'))
 
     try:
@@ -569,21 +570,30 @@ async def download_payment_list(callback_query: types.CallbackQuery):
         status = await pay_list(user_data[0], user_data[1])
         if status and status.get("response", {}).get("status"):
             payment_list = status["response"]["data"]
-            json_data = json.dumps(payment_list, ensure_ascii=False, indent=2)
 
-            upload_document = io.BytesIO(json_data.encode())
-            upload_document.name = 'pay_list.json' 
+            df = pd.DataFrame(payment_list)
 
-            bot_document = io.BytesIO(json_data.encode())
-            bot_document.name = 'pay_list.json'
+            df = df.filter(['v_description', 'dt_oper', 'v_sum'])
+            df.rename(columns={
+                'v_description': 'Цель',
+                'dt_oper': 'Дата операции',
+                'v_sum': 'Сумма'
+            }, inplace=True)
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False)
+            output.seek(0)
+
+            upload_document = io.BytesIO(output.getvalue())
+            upload_document.name = 'pay_list.xlsx'
             
-            link = await upload_cdn(upload_document)
+            link = await upload_cdn(upload_document)  
             if link:
-                await bot.send_document(callback_query.from_user.id, bot_document, caption=Texts.your_payment_history_text.format(link=link))
+                await bot.send_document(callback_query.from_user.id, ('pay_list.xlsx', output), caption=Texts.your_payment_history_text.format(link=link))
             else:
-                # answer_callback_query можно задокументировать, если CDN нету, для оптимизации
                 await bot.answer_callback_query(callback_query.id, text=Texts.upload_file_to_cdn_error_text)
-                await bot.send_document(callback_query.from_user.id, bot_document, caption=Texts.your_payment_history_no_cdn_text)
+                await bot.send_document(callback_query.from_user.id, ('pay_list.xlsx', output), caption=Texts.your_payment_history_no_cdn_text)
         else:
             await bot.answer_callback_query(callback_query.id, text=Texts.payment_history_false_text)
     else:
