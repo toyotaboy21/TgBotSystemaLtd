@@ -59,7 +59,7 @@ echo "Установка завершена."
 В файле конфигурации `data/config.json`, требуется разрешить загрузку определённых форматов файлов.
 
 ```json
- "allowed_files": ["txt", "pdf", "png", "jpg", "jpeg", "gif", "html", "zip", "py", "json"],
+ "allowed_files": ["txt", "pdf", "png", "jpg", "jpeg", "gif", "html", "zip", "py", "json", "xlsx"],
 ```
 
 По желанию (рекомендуем), ограничить доступ к загрузке файлов по IP
