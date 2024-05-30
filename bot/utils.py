@@ -563,7 +563,7 @@ async def upload_cdn(file: io.BytesIO) -> Union[Dict[str, Any], bool]:
     """
     url = f'http://{cdn_domain}/upload'
     data = aiohttp.FormData()
-    data.add_field('file', file, filename='file.json', content_type='application/octet-stream')
+    data.add_field('file', file, filename='file.xlsx', content_type='application/octet-stream')
 
     try:
         async with aiohttp.ClientSession() as session:
