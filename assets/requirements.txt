@@ -11,4 +11,4 @@ idna==3.6
 multidict==6.0.5
 typing-extensions==4.10.0
 urllib3==2.2.0
-pandas==2.1.4+dfsg
+pandas==2.1.4
