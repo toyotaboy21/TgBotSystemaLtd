@@ -590,10 +590,10 @@ async def download_payment_list(callback_query: types.CallbackQuery):
             
             link = await upload_cdn(upload_document)  
             if link:
-                await bot.send_document(callback_query.from_user.id, ('pay_list.xlsx', output), caption=Texts.your_payment_history_text.format(link=link))
+                await bot.send_document(callback_query.from_user.id, (f'История платежей абонента {user_data[0]}.xlsx', output), caption=Texts.your_payment_history_text.format(link=link))
             else:
                 await bot.answer_callback_query(callback_query.id, text=Texts.upload_file_to_cdn_error_text)
-                await bot.send_document(callback_query.from_user.id, ('pay_list.xlsx', output), caption=Texts.your_payment_history_no_cdn_text)
+                await bot.send_document(callback_query.from_user.id, (f'История платежей абонента {user_data[0]}.xlsx', output), caption=Texts.your_payment_history_no_cdn_text)
         else:
             await bot.answer_callback_query(callback_query.id, text=Texts.payment_history_false_text)
     else:
