@@ -8,7 +8,7 @@ def generate_admin_keyboard():
     revoke_access_button = InlineKeyboardButton("Отозвать доступ", callback_data='revoke_access')
     send_personal_message_button = InlineKeyboardButton("Отправить личное сообщение", callback_data='send_personal_message')
     mailing_users = InlineKeyboardButton("Сделать рассылку", callback_data='mailing')
-    main_menu_button = InlineKeyboardButton("❤️Главное меню", callback_data='back_to_start')
+    main_menu_button = InlineKeyboardButton("Главное меню", callback_data='back_to_start')
     
     admin_buttons.row(send_broadcast_button)
     admin_buttons.row(grant_access_button, revoke_access_button)
