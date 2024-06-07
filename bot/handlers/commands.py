@@ -113,19 +113,24 @@ async def process_id_input(message: types.Message, state: FSMContext):
     id = data.get("id")
     password = message.text
 
+    await message.delete()
+
     rs = await auth_profile(id, password)
     if rs['response']['status']:
         cursor.execute('INSERT INTO users (user_id, token, id, password, is_admin) VALUES (?, ?, ?, ?, ?)', (user_id, rs['response']['token'], id, password, 0))
         connection.commit()
 
-        cursor.execute('INSERT INTO favorites (user_id, cams) VALUES (?, ?)', (user_id, '[]'))
-        connection.commit()
+        try:
+            cursor.execute('INSERT INTO favorites (user_id, cams) VALUES (?, ?)', (user_id, '[]'))
+            connection.commit()
+        except sqlite3.IntegrityError:
+            pass
 
-        await message.reply(Texts.welcome_registered_text.format(user=message.from_user.first_name),
-                            parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=False))
+        await bot.send_message(message.chat.id, Texts.welcome_registered_text.format(user=message.from_user.first_name),
+            parse_mode="HTML", reply_markup=kb.generate_main_menu(is_admin=False))
         await state.finish()
     else:
-        await message.reply(Texts.password_or_login_error_text)
+        await bot.send_message(message.chat.id, Texts.password_or_login_error_text)
     
 @dp.callback_query_handler(lambda c: c.data.startswith('delete_message_'))
 async def delete_message(callback_query: types.CallbackQuery):
@@ -700,41 +705,50 @@ async def send_personal_message(callback_query: types.CallbackQuery):
 
 @dp.message_handler(state=SomeState.waiting_for_personal_message_id)
 async def process_personal_message_id(message: types.Message, state: FSMContext):
-    try:
-        user_id = int(message.text)
+    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+    result = cursor.fetchone()
 
-        await state.update_data(user_id=user_id)
-        await bot.send_message(message.chat.id, text=Texts.process_personal_text)
-        await SomeState.waiting_for_personal_message_text.set()
-
-    except ValueError:
-        await message.reply(text=Texts.user_id_not_found)
+    if result[0] == 1:
+        try:
+            await state.update_data(user_id=int(message.text))
+            await bot.send_message(message.chat.id, text=Texts.process_personal_text)
+            await SomeState.waiting_for_personal_message_text.set()
+        except ValueError:
+            await message.reply(text=Texts.user_id_not_found)
+    else:
+        await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
 
 @dp.message_handler(state=SomeState.waiting_for_personal_message_text)
 async def process_personal_message_text(message: types.Message, state: FSMContext):
-    try:
-        data = await state.get_data()
-        user_id = data.get('user_id')
-        personal_message = message.text
+    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+    result = cursor.fetchone()
 
-        delete_button = types.InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message')
-        delete_message = types.InlineKeyboardMarkup().add(delete_button)
-        await bot.send_message(
-            user_id,
-            personal_message,
-            parse_mode='HTML',
-            reply_markup=delete_message
-        )
-        await bot.send_message(
-            message.chat.id,
-            text=Texts.send_personal_true_text.format(user_id=user_id),
-            parse_mode='HTML',
-            reply_markup=generate_admin_keyboard()
-        )
-    except Exception as e:
-        await message.reply(text=Texts.send_personal_false_text)
-    finally:
-        await state.finish()
+    if result[0] == 1:
+        try:
+            data = await state.get_data()
+            user_id = data.get('user_id')
+            personal_message = message.text
+
+            delete_button = types.InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message')
+            delete_message = types.InlineKeyboardMarkup().add(delete_button)
+            await bot.send_message(
+                user_id,
+                personal_message,
+                parse_mode='HTML',
+                reply_markup=delete_message
+            )
+            await bot.send_message(
+                message.chat.id,
+                text=Texts.send_personal_true_text.format(user_id=user_id),
+                parse_mode='HTML',
+                reply_markup=generate_admin_keyboard()
+            )
+        except Exception as e:
+            await message.reply(text=Texts.send_personal_false_text)
+        finally:
+            await state.finish()
+    else:
+        await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
 
 @dp.callback_query_handler(lambda c: c.data == 'revoke_access')
 async def revoke_access_from_user(callback_query: types.CallbackQuery):
@@ -757,15 +771,21 @@ async def process_user_id(message: types.Message, state: FSMContext):
             elif result[0]:
                 await bot.send_message(user_id, text=Texts.grant_access_is_admin_text)
             else:
-                cursor.execute("UPDATE users SET is_admin = 1 WHERE user_id = ?", (user_id,))
-                connection.commit()
-                
-                await bot.send_message(
-                    message.chat.id,
-                    text=Texts.grant_access_true_text.format(user_id=user_id),
-                    parse_mode='HTML',
-                    reply_markup=generate_admin_keyboard()
-                )
+                cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+                result = cursor.fetchone()
+
+                if result[0] == 1:
+                    cursor.execute("UPDATE users SET is_admin = 1 WHERE user_id = ?", (user_id,))
+                    connection.commit()
+                    
+                    await bot.send_message(
+                        message.chat.id,
+                        text=Texts.grant_access_true_text.format(user_id=user_id),
+                        parse_mode='HTML',
+                        reply_markup=generate_admin_keyboard()
+                    )
+                else:
+                    await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
         else:
             await message.reply(text=Texts.re_auth_user_not_in_database_text)
     except ValueError:
@@ -785,15 +805,21 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
             if not result[0]:
                 await bot.send_message(user_id, text=Texts.revoke_access_false_text)
             else:
-                cursor.execute("UPDATE users SET is_admin = 0 WHERE user_id = ?", (user_id,))
-                connection.commit()
+                cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+                result = cursor.fetchone()
 
-                await bot.send_message(
-                    message.chat.id,
-                    text=Texts.revoke_access_true_text.format(user_id=user_id),
-                    parse_mode='HTML',
-                    reply_markup=generate_admin_keyboard()
-                )
+                if result[0] == 1:
+                    cursor.execute("UPDATE users SET is_admin = 0 WHERE user_id = ?", (user_id,))
+                    connection.commit()
+
+                    await bot.send_message(
+                        message.chat.id,
+                        text=Texts.revoke_access_true_text.format(user_id=user_id),
+                        parse_mode='HTML',
+                        reply_markup=generate_admin_keyboard()
+                    )
+                else:
+                    await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
         else:
             await message.reply(text=Texts.re_auth_user_not_in_database_text)
     except ValueError:
@@ -832,23 +858,29 @@ async def mailing_text(callback_query: types.CallbackQuery, state: FSMContext):
 async def process_content_input(message: types.Message, state: FSMContext):
     user_id = str(message.from_user.id)
 
-    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
+    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+    result = cursor.fetchone()
 
-    if user_data and user_data[4] == 1: 
-        cursor.execute("SELECT user_id FROM users")
-        users = cursor.fetchall()
+    if result[0] == 1:
+        cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+        user_data = cursor.fetchone()
 
-        await message.answer(text=Texts.process_content_input_text)
+        if user_data and user_data[4] == 1: 
+            cursor.execute("SELECT user_id FROM users")
+            users = cursor.fetchall()
 
-        for user in users:
-            try:
-                await message.copy_to(user[0])
-            except ChatNotFound:
-                pass
+            await message.answer(text=Texts.process_content_input_text)
 
-        await message.answer(text=Texts.process_content_input_true_text)
+            for user in users:
+                try:
+                    await message.copy_to(user[0])
+                except ChatNotFound:
+                    pass
+
+            await message.answer(text=Texts.process_content_input_true_text)
+        else:
+            await message.answer(text=Texts.process_content_input_false_text)
+
+        await state.finish()
     else:
-        await message.answer(text=Texts.process_content_input_false_text)
-
-    await state.finish()
+        await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
