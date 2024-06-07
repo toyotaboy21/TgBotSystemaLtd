@@ -81,7 +81,7 @@ async def auth_profile(id: int, password) -> Union[Dict[str, Any], bool]:
             "password_changed": true
         }
     }
-    ```/
+    ```
 
     API Docs: https://github.com/reques6e/SystemUtilis/blob/main/API.md#вход-в-личный-кабинет
     """
