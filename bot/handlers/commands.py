@@ -5,7 +5,7 @@ import re
 import json
 import time
 import asyncio
-import sqlite3
+import aiosqlite
 
 from aiogram import types
 from aiogram.utils.exceptions import ChatNotFound
@@ -20,24 +20,28 @@ from bot.dictionaries.dictionary import Texts
 from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy, ChangePasswordState
 
 
-connection = sqlite3.connect('bot/database/db.db')
-cursor = connection.cursor()
+connection = None
+cursor = None
 
 async def on_startup_commands(_):
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users(
+    global connection, cursor
+    connection = await aiosqlite.connect('bot/database/db.db')
+    cursor = await connection.cursor()
+
+    await cursor.execute('''CREATE TABLE IF NOT EXISTS users(
             user_id INTEGER PRIMARY KEY,
             token TEXT,
             id INTEGER,
             password TEXT,
             is_admin INTEGER 
         )''')
-    connection.commit()
+    await connection.commit()
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS favorites(
+    await cursor.execute('''CREATE TABLE IF NOT EXISTS favorites(
             user_id INTEGER PRIMARY KEY,
             cams TEXT
         )''')
-    connection.commit()
+    await connection.commit()
 
     print('Бот запущен!')
 
@@ -45,8 +49,8 @@ async def on_startup_commands(_):
 async def start(message: types.Message, state: FSMContext):
     user_id = str(message.from_user.id)
 
-    cursor.execute("SELECT user_id, is_admin FROM users WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
+    await cursor.execute("SELECT user_id, is_admin FROM users WHERE user_id = ?", (user_id,))
+    result = await cursor.fetchone()
     if not result:
         try:
             await bot.send_message(
@@ -67,11 +71,11 @@ async def start(message: types.Message, state: FSMContext):
 async def del_data(message: types.Message):
     user_id = str(message.from_user.id)
 
-    cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
-    connection.commit()
+    await cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+    await connection.commit()
 
-    cursor.execute("DELETE FROM favorites WHERE user_id = ?", (user_id,))
-    connection.commit()
+    await cursor.execute("DELETE FROM favorites WHERE user_id = ?", (user_id,))
+    await connection.commit()
     
     await message.reply(Texts.delete_user_data_text.format(user_id=user_id))
 
@@ -79,8 +83,8 @@ async def del_data(message: types.Message):
 async def re_auth(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
 
-    cursor.execute("SELECT id, password FROM users WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
+    await cursor.execute("SELECT id, password FROM users WHERE user_id = ?", (user_id,))
+    result = await cursor.fetchone()
 
     if result:
         id = result[0]
@@ -88,8 +92,8 @@ async def re_auth(message: types.Message, state: FSMContext):
 
         re_auth_response = await auth_profile(id, password)
         if re_auth_response and re_auth_response['response']['status']:
-            cursor.execute("UPDATE users SET token = ? WHERE user_id = ?", (re_auth_response['response']['token'], user_id))
-            connection.commit()
+            await cursor.execute("UPDATE users SET token = ? WHERE user_id = ?", (re_auth_response['response']['token'], user_id))
+            await connection.commit()
 
             await message.answer(Texts.re_auth_true_text)
         else:
@@ -117,13 +121,13 @@ async def process_id_input(message: types.Message, state: FSMContext):
 
     rs = await auth_profile(id, password)
     if rs['response']['status']:
-        cursor.execute('INSERT INTO users (user_id, token, id, password, is_admin) VALUES (?, ?, ?, ?, ?)', (user_id, rs['response']['token'], id, password, 0))
-        connection.commit()
+        await cursor.execute('INSERT INTO users (user_id, token, id, password, is_admin) VALUES (?, ?, ?, ?, ?)', (user_id, rs['response']['token'], id, password, 0))
+        await connection.commit()
 
         try:
-            cursor.execute('INSERT INTO favorites (user_id, cams) VALUES (?, ?)', (user_id, '[]'))
-            connection.commit()
-        except sqlite3.IntegrityError:
+            await cursor.execute('INSERT INTO favorites (user_id, cams) VALUES (?, ?)', (user_id, '[]'))
+            await connection.commit()
+        except aiosqlite.IntegrityError:
             pass
 
         await bot.send_message(message.chat.id, Texts.welcome_registered_text.format(user=message.from_user.first_name),
@@ -273,8 +277,8 @@ async def camera_selected(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
     async def is_favorite(user_id, channel_name):
-        cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
-        row = cursor.fetchone()
+        await cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+        row = await cursor.fetchone()
         if row:
             favorites = json.loads(row[0])
             return channel_name in favorites
@@ -320,14 +324,14 @@ async def remove_from_favorites(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     channel_name = callback_query.data.replace('remove_from_favorites_', '')
     
-    cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
+    await cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+    row = await cursor.fetchone()
     if row:
         favorites = json.loads(row[0])
         if channel_name in favorites:
             favorites.remove(channel_name)
-            cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
-            connection.commit()
+            await cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
+            await connection.commit()
             await bot.answer_callback_query(callback_query.id, Texts.camera_remove_from_favorites_text)
             return
 
@@ -339,8 +343,8 @@ async def add_to_favorites(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     channel_name = callback_query.data.replace('add_to_favorites_', '') 
     
-    cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
+    await cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+    row = await cursor.fetchone()
     if row:
         favorites = json.loads(row[0])
     else:
@@ -352,8 +356,8 @@ async def add_to_favorites(callback_query: types.CallbackQuery):
 
     favorites.append(channel_name)
 
-    cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
-    connection.commit()
+    await cursor.execute("REPLACE INTO favorites (user_id, cams) VALUES (?, ?)", (user_id, json.dumps(favorites)))
+    await connection.commit()
 
     await bot.answer_callback_query(callback_query.id, text=Texts.add_to_favorites_text)
 
@@ -362,8 +366,8 @@ async def add_to_favorites(callback_query: types.CallbackQuery):
 async def get_favorites(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
+    await cursor.execute("SELECT cams FROM favorites WHERE user_id = ?", (user_id,))
+    row = await cursor.fetchone()
 
     if row:
         favorites = json.loads(row[0])
@@ -429,11 +433,11 @@ async def profile(callback_query: types.CallbackQuery):
 async def lock_lk(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
+    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = await cursor.fetchone()
     
     if user_data:
-        rs = await fetch_profile(cursor, user_id)
+        rs = await fetch_profile(await cursor, user_id)
         if rs['response']['data']['is_locked']:
             is_lock = 0
         else:
@@ -457,8 +461,8 @@ async def change_password_callback(callback_query: types.CallbackQuery):
 async def process_new_password(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
 
-    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
+    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = await cursor.fetchone()
 
     async with state.proxy() as data:
         data['new_password'] = message.text
@@ -487,8 +491,8 @@ async def process_sms_code(message: types.Message, state: FSMContext):
 
         result = await change_password_confim(id, new_password, token, code)
 
-        cursor.execute("UPDATE users SET password = ? WHERE user_id = ?", (new_password, user_id))
-        connection.commit()
+        await cursor.execute("UPDATE users SET password = ? WHERE user_id = ?", (new_password, user_id))
+        await connection.commit()
         
         if result:
             await message.answer(text=Texts.password_edited_text)
@@ -502,8 +506,8 @@ async def process_sms_code(message: types.Message, state: FSMContext):
 async def payment_history(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
+    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = await cursor.fetchone()
     if user_data:
         status = await pay_list(user_data[0], user_data[1])
         if status and status.get("response", {}).get("status"):
@@ -553,8 +557,8 @@ async def handle_payment_pagination(callback_query: types.CallbackQuery):
     page = int(callback_query.data.split('_')[2])
 
     user_id = callback_query.from_user.id
-    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
+    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = await cursor.fetchone()
     if user_data:
         status = await pay_list(user_data[0], user_data[1])
         if status and status.get("response", {}).get("status"):
@@ -569,8 +573,8 @@ async def handle_payment_pagination(callback_query: types.CallbackQuery):
 async def download_payment_list(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
+    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = await cursor.fetchone()
     if user_data:
         status = await pay_list(user_data[0], user_data[1])
         if status and status.get("response", {}).get("status"):
@@ -608,8 +612,8 @@ async def download_payment_list(callback_query: types.CallbackQuery):
 async def activate_promised_payment(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    user_data = cursor.fetchone()
+    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    user_data = await cursor.fetchone()
     if user_data:
         status = await promised_payment(user_data[0], user_data[1])
 
@@ -636,8 +640,8 @@ async def process_amount(message: types.Message, state: FSMContext):
     if amount >= 25000:
         await message.reply(text=Texts.process_amount_limit_text)
     else:
-        cursor.execute("SELECT id FROM users WHERE user_id = ?", (user_id,))
-        user_data = cursor.fetchone()
+        await cursor.execute("SELECT id FROM users WHERE user_id = ?", (user_id,))
+        user_data = await cursor.fetchone()
         if user_data:
             id = user_data[0]
             pay_link = await generate_pay_link(id, amount)
@@ -652,8 +656,8 @@ async def process_amount(message: types.Message, state: FSMContext):
 async def back_to_start(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
+    await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
+    result = await cursor.fetchone()
 
     main_menu = kb.generate_main_menu(is_admin=result[0])
     await bot.edit_message_text(chat_id=callback_query.from_user.id,
@@ -680,8 +684,8 @@ async def admin_panel(callback_query: types.CallbackQuery):
 async def grant_access_callback(callback_query: types.CallbackQuery):
     user_id = str(callback_query.from_user.id)
 
-    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
+    await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
+    result = await cursor.fetchone()
 
     if result and result[0]: 
         await bot.send_message(user_id,
@@ -705,8 +709,8 @@ async def send_personal_message(callback_query: types.CallbackQuery):
 
 @dp.message_handler(state=SomeState.waiting_for_personal_message_id)
 async def process_personal_message_id(message: types.Message, state: FSMContext):
-    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
-    result = cursor.fetchone()
+    await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+    result = await cursor.fetchone()
 
     if result[0] == 1:
         try:
@@ -720,8 +724,8 @@ async def process_personal_message_id(message: types.Message, state: FSMContext)
 
 @dp.message_handler(state=SomeState.waiting_for_personal_message_text)
 async def process_personal_message_text(message: types.Message, state: FSMContext):
-    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
-    result = cursor.fetchone()
+    await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+    result = await cursor.fetchone()
 
     if result[0] == 1:
         try:
@@ -762,8 +766,8 @@ async def process_user_id(message: types.Message, state: FSMContext):
     try:
         user_id = int(message.text)
 
-        cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
-        result = cursor.fetchone()
+        await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
+        result = await cursor.fetchone()
 
         if result:
             if user_id == message.from_user.id:
@@ -771,18 +775,17 @@ async def process_user_id(message: types.Message, state: FSMContext):
             elif result[0]:
                 await bot.send_message(user_id, text=Texts.grant_access_is_admin_text)
             else:
-                cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
-                result = cursor.fetchone()
+                await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+                result = await cursor.fetchone()
 
                 if result[0] == 1:
-                    cursor.execute("UPDATE users SET is_admin = 1 WHERE user_id = ?", (user_id,))
-                    connection.commit()
+                    await cursor.execute("UPDATE users SET is_admin = 1 WHERE user_id = ?", (user_id,))
+                    await connection.commit()
                     
                     await bot.send_message(
                         message.chat.id,
                         text=Texts.grant_access_true_text.format(user_id=user_id),
-                        parse_mode='HTML',
-                        reply_markup=generate_admin_keyboard()
+                        parse_mode='HTML'
                     )
                 else:
                     await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
@@ -798,25 +801,24 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
     try:
         user_id = int(message.text)
 
-        cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
-        result = cursor.fetchone()
+        await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
+        result = await cursor.fetchone()
 
         if result:
             if not result[0]:
                 await bot.send_message(user_id, text=Texts.revoke_access_false_text)
             else:
-                cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
-                result = cursor.fetchone()
+                await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+                result = await cursor.fetchone()
 
                 if result[0] == 1:
-                    cursor.execute("UPDATE users SET is_admin = 0 WHERE user_id = ?", (user_id,))
-                    connection.commit()
+                    await cursor.execute("UPDATE users SET is_admin = 0 WHERE user_id = ?", (user_id,))
+                    await connection.commit()
 
                     await bot.send_message(
                         message.chat.id,
                         text=Texts.revoke_access_true_text.format(user_id=user_id),
-                        parse_mode='HTML',
-                        reply_markup=generate_admin_keyboard()
+                        parse_mode='HTML'
                     )
                 else:
                     await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
@@ -858,16 +860,16 @@ async def mailing_text(callback_query: types.CallbackQuery, state: FSMContext):
 async def process_content_input(message: types.Message, state: FSMContext):
     user_id = str(message.from_user.id)
 
-    cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
-    result = cursor.fetchone()
+    await cursor.execute("SELECT is_admin FROM users WHERE user_id = ?", (message.from_user.id,))
+    result = await cursor.fetchone()
 
     if result[0] == 1:
-        cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-        user_data = cursor.fetchone()
+        await cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+        user_data = await cursor.fetchone()
 
         if user_data and user_data[4] == 1: 
-            cursor.execute("SELECT user_id FROM users")
-            users = cursor.fetchall()
+            await cursor.execute("SELECT user_id FROM users")
+            users = await cursor.fetchall()
 
             await message.answer(text=Texts.process_content_input_text)
 
