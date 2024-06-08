@@ -886,3 +886,4 @@ async def process_content_input(message: types.Message, state: FSMContext):
         await state.finish()
     else:
         await bot.send_message(message.chat.id, text=Texts.process_content_input_false_text)
+        
