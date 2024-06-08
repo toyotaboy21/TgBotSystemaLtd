@@ -1,3 +1,4 @@
+
 import json
 import aiohttp
 import io
@@ -49,8 +50,8 @@ async def fetch_profile(cursor, user_id: int) -> Union[Dict[str, Any], bool]:
     API Docs: https://github.com/reques6e/SystemUtilis/blob/main/API.md#получение-информации-о-профиле
     """
 
-    cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
+    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
+    row = await cursor.fetchone()
     if not row:
         return False
     
