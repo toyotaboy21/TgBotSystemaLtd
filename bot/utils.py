@@ -559,9 +559,11 @@ async def lock_lk_rs(id: int, token: str, lock: int) -> Union[Dict[str, Any], bo
                 return False
 
 async def upload_cdn(file: io.BytesIO) -> Union[Dict[str, Any], bool]:
+
     """
     Загрузка файлов на CDN
     """
+
     url = f'http://{cdn_domain}/upload'
     data = aiohttp.FormData()
     data.add_field('file', file, filename='file.xlsx', content_type='application/octet-stream')
@@ -575,3 +577,117 @@ async def upload_cdn(file: io.BytesIO) -> Union[Dict[str, Any], bool]:
         return None
     except aiohttp.client_exceptions.InvalidURL:
         return None
+    
+async def get_selection() -> Union[Dict[str, Any], bool]:
+    """
+    Получение всех разделов (Кино)
+
+    ```json
+    {
+    "response": [
+        {
+        "id": 1,
+        "name": "Поиск",
+        "page": "search",
+        "background": "https://img.cyxym.net/kino/sections/1.jpg",
+        "preview": "https://img.cyxym.net/kino/sections/preview/1.jpg",
+        "icon": "https://img.cyxym.net/kino/sections/icons/1.svg"
+        },
+        {
+        "id": 3,
+        "name": "Фильмы",
+        "page": "movies",
+        "background": "https://img.cyxym.net/kino/sections/3.jpg",
+        "preview": "https://img.cyxym.net/kino/sections/preview/3.jpg",
+        "icon": "https://img.cyxym.net/kino/sections/icons/3.svg"
+        },
+        {
+        "id": 4,
+        "name": "Мультфильмы",
+        "page": "mults",
+        "background": "https://img.cyxym.net/kino/sections/4.jpg",
+        "preview": "https://img.cyxym.net/kino/sections/preview/4.jpg",
+        "icon": "https://img.cyxym.net/kino/sections/icons/4.svg"
+        },
+        {
+        "id": 5,
+        "name": "Сериалы",
+        "page": "series",
+        "background": "https://img.cyxym.net/kino/sections/5.jpg",
+        "preview": "https://img.cyxym.net/kino/sections/preview/5.jpg",
+        "icon": "https://img.cyxym.net/kino/sections/icons/5.svg"
+        },
+        {
+        "id": 6,
+        "name": "Наше",
+        "page": "our",
+        "background": "https://img.cyxym.net/kino/sections/6.jpg",
+        "preview": "https://img.cyxym.net/kino/sections/preview/6.jpg",
+        "icon": "https://img.cyxym.net/kino/sections/icons/6.svg"
+        },
+        {
+        "id": 7,
+        "name": "Избранное",
+        "page": "favorites",
+        "background": "https://img.cyxym.net/kino/sections/7.jpg",
+        "preview": "https://img.cyxym.net/kino/sections/preview/7.jpg",
+        "icon": "https://img.cyxym.net/kino/sections/icons/7.svg"
+        },
+        {
+        "id": 8,
+        "name": "Камеры",
+        "page": "cams",
+        "background": "https://img.cyxym.net/kino/sections/8.jpg",
+        "preview": "https://img.cyxym.net/kino/sections/preview/8.jpg",
+        "icon": "https://img.cyxym.net/kino/sections/icons/8.svg"
+        }
+    ]
+    }
+    ```
+    """
+
+    url = 'https://api.cyxym.net/kino/v1?sections.get'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url) as response:
+            if response.status == 200 or 401:
+                return await response.json()
+            else:
+                return False
+            
+async def get_kino_search_result(kino_name: str) -> Union[Dict[str, Any], bool]:
+
+    """
+    Получение всех фильмов по названию
+
+    ```json
+    {
+        "response": [
+            {
+                "id": 7820,
+                "name": "Лев яшин",
+                "preview": "https://kino.cyxym.net/img/posters/1007986.jpg",
+                "new_seria": false
+            }
+        ]
+    }
+
+    ```
+    """
+
+    url = 'https://api.cyxym.net/kino/v1?movies.get.byName'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data={'query': kino_name}) as response:
+            if response.status == 200 or 401:
+                return await response.json()
+            else:
+                return False
+            
+async def get_kino_by_id(id) -> Union[Dict[str, Any], bool]:
+
+    url = 'https://api.cyxym.net/kino/v1?movies.get.byId'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data={'id': id}) as response:
+            if response.status == 200 or 401:
+                return await response.json()
+            else:
+                return False
