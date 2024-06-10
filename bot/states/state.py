@@ -19,3 +19,6 @@ class SubscribeBuy(StatesGroup):
 class ChangePasswordState(StatesGroup):
     waiting_for_new_password = State() 
     waiting_for_sms_code = State() 
+
+class Kino(StatesGroup):
+    waiting_for_kino_name = State()
