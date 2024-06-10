@@ -177,3 +177,13 @@ class Texts:
 💨 Скорость ветра: <b>{wind_speed} м/c</b>"""
 
     history_payment_text = """Ваша история платежей"""
+
+    all_kino_displayed_text = """Отображены все фильмы"""
+
+    kino_page_text = """<b>{name}</b>
+    
+{description}
+
+<b>⭐Кинопоиск:</b> {rating}
+<b>💫Рейтинг:</b> {likes}👍 / {dislikes}👎
+"""
