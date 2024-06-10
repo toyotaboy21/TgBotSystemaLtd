@@ -13,11 +13,13 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 
 from bot.bot import dp, bot
-from bot.utils import pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, get_locations, get_stream_info, change_password, change_password_confim, lock_lk_rs, upload_cdn
+from bot.utils import ( pay_list, fetch_profile, auth_profile, generate_pay_link, promised_payment, get_camera, 
+                       get_locations, get_stream_info, change_password, change_password_confim, lock_lk_rs, 
+                       upload_cdn, get_selection, get_kino_search_result, get_kino_by_id)
 from bot.keyboards.keyboard_admin import generate_admin_keyboard
 from bot.keyboards import keyboard as kb
 from bot.dictionaries.dictionary import Texts
-from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy, ChangePasswordState
+from bot.states.state import SomeState, MailingState, Registration, SubscribeBuy, ChangePasswordState, Kino
 
 
 connection = None
@@ -52,15 +54,17 @@ async def start(message: types.Message, state: FSMContext):
     await cursor.execute("SELECT user_id, is_admin FROM users WHERE user_id = ?", (user_id,))
     result = await cursor.fetchone()
     if not result:
-        try:
-            await bot.send_message(
-                6681723799,
-                text=Texts.notification_registration_text.format(user_id),
-                parse_mode='HTML',
-                reply_markup=delete_message
-            )
-        except:
-            pass
+
+        # Используется в ветке production
+        # try:
+        #     await bot.send_message(
+        #         6681723799,
+        #         text=Texts.notification_registration_text.format(user_id),
+        #         parse_mode='HTML',
+        #         reply_markup=delete_message
+        #     )
+        # except:
+        #     pass
 
         await message.answer(Texts.welcome_registration_text.format(user=message.from_user.first_name))
         await Registration.waiting_for_token.set()
@@ -202,6 +206,123 @@ async def get_cams_list(callback_query: types.CallbackQuery):
         )
     else:
         await bot.answer_callback_query(callback_query.id, text=Texts.select_location_false_text)
+
+@dp.callback_query_handler(lambda c: c.data == 'kino')
+async def selection_1_selected(callback_query: types.CallbackQuery):
+    await bot.edit_message_text(
+        chat_id=callback_query.from_user.id,
+        message_id=callback_query.message.message_id,
+        text='Пожалуйста, введите название фильма:',
+        parse_mode="HTML"
+    )
+    await Kino.waiting_for_kino_name.set()
+
+@dp.message_handler(state=Kino.waiting_for_kino_name)
+async def get_kino_name(message: types.Message, state: FSMContext):
+    kino_name = message.text
+    await state.finish()
+    
+    search_response = await get_kino_search_result(kino_name=kino_name)
+    if search_response and search_response.get('response'):
+        search = search_response['response']
+        search_groups = [search[i:i+9] for i in range(0, len(search), 9)]
+        current_page = 0
+         
+        async def send_kino_message(page, message):
+            keyboard = InlineKeyboardMarkup()
+            for camera in search_groups[page]:
+                camera_id = camera['id']
+                camera_name = camera['name']
+                keyboard.insert(InlineKeyboardButton(camera_name, callback_data=f'kino_page_{camera_id}'))
+            
+            if len(search_groups) > 1:
+                if page == 0:
+                    keyboard.row(InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'),
+                                 InlineKeyboardButton("Вперёд➡️", callback_data='next'))
+                elif page == len(search_groups) - 1:
+                    keyboard.row(InlineKeyboardButton("⬅️ Назад", callback_data='back'),
+                                 InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'))
+                else:
+                    keyboard.row(InlineKeyboardButton("⬅️ Назад", callback_data='back'),
+                                 InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'),
+                                 InlineKeyboardButton("Вперёд➡️", callback_data='next'))
+            else:
+                keyboard.row(InlineKeyboardButton("🔙 Назад", callback_data='back'),
+                             InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'),
+                             InlineKeyboardButton("Вперёд➡️", callback_data='next'))
+                        
+            try:
+                await bot.edit_message_text(
+                    chat_id=message.chat.id,
+                    message_id=message.message_id,
+                    text=Texts.select_camera_text,
+                    reply_markup=keyboard
+                )
+            except aiogram.utils.exceptions.MessageNotModified:
+                try:
+                    await bot.answer_callback_query(message.message_id, text=Texts.all_kino_displayed_text)
+                except:
+                    pass
+            except aiogram.utils.exceptions.MessageToEditNotFound:
+                pass
+            except:
+                await bot.send_message(
+                    message.chat.id,
+                    text='Выберите фильм',
+                    reply_markup=keyboard
+                )
+        
+        await send_kino_message(current_page, message)
+
+        @dp.callback_query_handler(lambda c: c.data in {'back', 'next'})
+        async def handle_navigation(callback_query: types.CallbackQuery):
+            nonlocal current_page
+            if callback_query.data == 'back':
+                current_page = max(current_page - 1, 0)
+            elif callback_query.data == 'next':
+                current_page = min(current_page + 1, len(search_groups) - 1)
+            await send_kino_message(current_page, callback_query.message)
+    else:
+        pass
+
+@dp.callback_query_handler(lambda c: c.data.startswith('kino_page_'))
+async def kino_selected(callback_query: types.CallbackQuery):
+    channel_name = callback_query.data.replace('kino_page_', '')
+    user_id = callback_query.from_user.id
+
+        
+    camera_response = await get_kino_by_id(channel_name)
+    response = camera_response['response'][0]
+    if response:
+        preview = response['preview']
+        name = response['name']
+        description = response['description']
+        rating = response['rating']['kp']
+        likes = response['rating']['likes']
+        dislikes = response['rating']['dislikes']
+        if len(description) > 320:
+            description = description[:320-3] + '...'
+
+        keyboard = InlineKeyboardMarkup()
+
+        keyboard.add(InlineKeyboardButton("📺Смотреть фильм", url=f'https://kino.cyxym.net/player.php?vod={response["id"]}&type=hd'))
+        keyboard.add(InlineKeyboardButton("🗑Удалить", callback_data="button_delete_message"))
+        
+        await bot.send_photo(
+            chat_id=callback_query.from_user.id,
+            photo='https://ibb.co/jfP3MVw',
+            caption=Texts.kino_page_text.format(name=name, description=description, rating=rating, likes=likes, dislikes=dislikes),
+            parse_mode='HTML',
+            reply_markup=keyboard
+        )
+        # await bot.send_message(
+        #     chat_id=callback_query.from_user.id,
+        #     text=text,
+        #     parse_mode="HTML",
+        #     reply_markup=keyboard
+        # )
+    else:
+        await bot.answer_callback_query(callback_query.id, text=Texts.get_camera_error_text)
 
 @dp.callback_query_handler(lambda c: c.data.startswith('location_'))
 async def location_selected(callback_query: types.CallbackQuery):
@@ -378,10 +499,14 @@ async def get_favorites(callback_query: types.CallbackQuery):
                 keyboard.add(InlineKeyboardButton(favorite, callback_data=f'camera_{favorite}'))
         else:
             message_text = Texts.your_favorite_cameras_false_text
-            keyboard = None
+
+            keyboard = InlineKeyboardMarkup()
+            keyboard.row(InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'))
     else:
         message_text = Texts.favorite_cameras_none_text
-        keyboard = None
+
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row(InlineKeyboardButton("🗑Удалить", callback_data='button_delete_message'))
 
     await bot.send_message(callback_query.from_user.id, message_text, reply_markup=keyboard)
     await bot.answer_callback_query(callback_query.id) 
