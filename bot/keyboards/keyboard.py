@@ -6,8 +6,9 @@ def generate_main_menu(is_admin=False):
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🔎 Камеры", callback_data='cams'),
                InlineKeyboardButton("👤 Профиль", callback_data='profile'))
+    markup.add(InlineKeyboardButton("🎬 Кино", callback_data='kino'),
+               InlineKeyboardButton("⭐ Избранное", callback_data='get_favorites'))
     markup.add(InlineKeyboardButton("❔ Инфо", callback_data='info'))
-    markup.add(InlineKeyboardButton("⭐ Избранное", callback_data='get_favorites'))
 
     if is_admin:
         admin_button = InlineKeyboardButton("🛠️ Админ панель", callback_data='admin_panel')
