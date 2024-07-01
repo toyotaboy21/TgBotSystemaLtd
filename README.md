@@ -27,7 +27,7 @@ pip3 install -r assets/requirements.txt
 
 cat > /etc/systemd/system/tg_bot_systema.service <<EOF
 [Unit]
-Description=Flask App
+Description=TgBotSystema
 After=network.target
 
 [Service]
