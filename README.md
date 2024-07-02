@@ -15,6 +15,9 @@
 ```
 ┌──(reques6e㉿kali)-[~/Desktop/Project/TgBotCyxym]
 └─$ chmod +x installer.bash
+
+┌──(reques6e㉿kali)-[~/Desktop/Project/TgBotCyxym]
+└─$ bash installer.bash
 Установка завершена.
 ```
 Работает под сервисом `tg_bot_systema.service`:
