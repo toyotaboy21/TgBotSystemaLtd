@@ -12,7 +12,7 @@ def get_first_day_last_month():
     first_day_last_month = today.replace(day=1) - timedelta(days=today.day)
     return first_day_last_month.strftime("%Y-%m-%d")
 
-async def fetch_profile(cursor, user_id: int) -> Union[Dict[str, Any], bool]:
+async def fetch_profile(id: int, token: str) -> Union[Dict[str, Any], bool]:
     
     """
     Получение информации о профиле
@@ -49,14 +49,6 @@ async def fetch_profile(cursor, user_id: int) -> Union[Dict[str, Any], bool]:
 
     API Docs: https://github.com/reques6e/SystemUtilis/blob/main/API.md#получение-информации-о-профиле
     """
-
-    await cursor.execute("SELECT id, token FROM users WHERE user_id = ?", (user_id,))
-    row = await cursor.fetchone()
-    if not row:
-        return False
-    
-    id = row[0]
-    token = row[1]
 
     url = 'https://api.cyxym.net/app/v1?account'
     async with aiohttp.ClientSession() as session:
