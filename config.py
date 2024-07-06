@@ -1,2 +1,4 @@
-bot_token = ''
-cdn_domain = ''
+
+class Config:
+    bot_token = ''
+    cdn_domain = ''
