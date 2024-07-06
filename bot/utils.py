@@ -5,7 +5,7 @@ import io
 
 from typing import Dict, Any, Union
 from datetime import datetime, timedelta
-from config import cdn_domain
+from config import Config
 
 def get_first_day_last_month():
     today = datetime.now()
@@ -556,10 +556,11 @@ async def upload_cdn(file: io.BytesIO) -> Union[Dict[str, Any], bool]:
     Загрузка файлов на CDN
     """
 
-    url = f'http://{cdn_domain}/upload'
     data = aiohttp.FormData()
     data.add_field('file', file, filename='file.xlsx', content_type='application/octet-stream')
 
+    url = f'http://{Config.cdn_domain}/upload'
+    
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=data) as response:
