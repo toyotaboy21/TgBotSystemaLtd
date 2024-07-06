@@ -13,3 +13,4 @@ typing-extensions==4.10.0
 urllib3==2.2.0
 pandas==2.1.4
 openpyxl==3.1.2
+pydantic==1.10.17
