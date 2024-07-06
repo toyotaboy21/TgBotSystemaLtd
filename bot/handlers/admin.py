@@ -192,7 +192,6 @@ async def process_revoke_access(message: types.Message, state: FSMContext):
 async def handle_messages(message: types.Message):
     await message.answer(text=Texts.command_not_found_text)
         
-
 @dp.callback_query_handler(lambda c: c.data == 'mailing')
 async def mailing_text(callback_query: types.CallbackQuery, state: FSMContext):
     msg = await bot.edit_message_text(chat_id=callback_query.from_user.id,
